@@ -47,10 +47,7 @@ static inline struct pkt *pkt_alloc(size_t size)
 	struct pkt *p = xmalloc(sizeof(*q) + size);
 	uint8_t *data = (uint8_t *)p + sizeof(*p);
 
-	p->head = data;
-	p->data = data;
-	p->tail = data + size;
-	p->size = size;
+	p->head = p->data = p->tail = data;
 
 	return p;
 }
