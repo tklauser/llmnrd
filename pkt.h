@@ -44,7 +44,7 @@ static inline bool pkt_invariant(struct pkt *p)
 
 static inline struct pkt *pkt_alloc(size_t size)
 {
-	struct pkt *p = xmalloc(sizeof(*q) + size);
+	struct pkt *p = xmalloc(sizeof(*p) + size);
 	uint8_t *data = (uint8_t *)p + sizeof(*p);
 
 	p->head = p->data = p->tail = data;
