@@ -72,7 +72,7 @@ static inline uint8_t *pkt_put(struct pkt *p, size_t len)
 
 	assert(pkt_invariant(p));
 
-	if (len <= pkt_len(p)) {
+	if (pkt_len(p) + len <= p->size) {
 		data = p->tail;
 		p->tail += len;
 	} else {
