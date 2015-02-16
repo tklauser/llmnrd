@@ -90,16 +90,15 @@ static inline uint8_t *pkt_put(struct pkt *p, size_t len)
 	return data;
 }
 
-static inline void pkt_put_u16(struct pkt *p, uint16_t val)
-{
-	uint16_t *data = (uint16_t *)pkt_put(p, sizeof(val));
-	*data = val;
+#define DEFINE_PKT_PUT(__bitwidth)							\
+static inline void pkt_put_u##__bitwidth(struct pkt *p, uint##__bitwidth##_t val)	\
+{											\
+	uint##__bitwidth##_t *data = (uint##__bitwidth##_t *)pkt_put(p, sizeof(val));	\
+	*data = val;									\
 }
 
-static inline void pkt_put_u32(struct pkt *p, uint32_t val)
-{
-	uint32_t *data = (uint32_t *)pkt_put(p, sizeof(val));
-	*data = val;
-}
+DEFINE_PKT_PUT(8)
+DEFINE_PKT_PUT(16)
+DEFINE_PKT_PUT(32)
 
 #endif /* PKT_H */
