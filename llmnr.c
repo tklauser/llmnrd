@@ -155,15 +155,15 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		 * TODO: Implement message compression (RFC 1035,
 		 * section 4.1.3)
 		 */
-		memcpy(pkt_put(p, llmnr_hostname[0]), llmnr_hostname, llmnr_hostname[0] + 2);
+		memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
 		/* TYPE */
-		pkt_put_u16(p, qtype);
+		pkt_put_u16(p, htons(qtype));
 		/* CLASS */
-		pkt_put_u16(p, LLMNR_CLASS_IN);
+		pkt_put_u16(p, htons(LLMNR_CLASS_IN));
 		/* TTL */
-		pkt_put_u32(p, LLMNR_TTL_DEFAULT);
+		pkt_put_u32(p, htonl(LLMNR_TTL_DEFAULT));
 		/* RDLENGTH */
-		pkt_put_u16(p, addr_size);
+		pkt_put_u16(p, htons(addr_size));
 		/* RDATA */
 		memcpy(pkt_put(p, addr_size), addr, addr_size);
 	}
