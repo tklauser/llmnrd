@@ -99,7 +99,7 @@ int socket_open_rtnl(void)
 
 	memset(&sa, 0, sizeof(sa));
 	sa.nl_family = AF_NETLINK;
-	/* 
+	/*
 	 * listen for following events:
 	 * - network interface create/delete/up/down
 	 * - IPv4 address add/delete

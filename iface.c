@@ -52,7 +52,7 @@ struct iface_record {
 static struct list_head iface_list_head;
 static pthread_mutex_t iface_list_mutex;
 
-size_t iface_addr_lookup(unsigned int ifindex, unsigned char family, 
+size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 			 struct sockaddr_storage *addrs, size_t addrs_size)
 {
 	struct iface_record *rec;

@@ -81,7 +81,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	if (qclass == LLMNR_QCLASS_IN) {
 		size_t i, n, response_len;
 		unsigned char family = AF_UNSPEC;
-		/* 
+		/*
 		 * arbitrary restriction to 16 addresses per interface for the
 		 * sake of a simple, atomic interface
 		 */
@@ -108,7 +108,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 
 		log_info("Responding with %zu addresses\n", n);
 
-		/* 
+		/*
 		 * This is the max response length (i.e. using all IPv6
 		 * addresses). We might not use all of it.
 		 */
@@ -132,7 +132,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		for (i = 0; i < n; i++) {
 			void *addr;
 			size_t addr_size;
-			
+
 			if (addrs[i].ss_family == AF_INET) {
 				struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
 				addr = &sin->sin_addr;
@@ -146,7 +146,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 				continue;
 			}
 
-			/* 
+			/*
 			 * NAME
 			 *
 			 * TODO: Implement message compression (RFC 1035,
@@ -186,7 +186,7 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 	const uint8_t *query;
 	size_t query_len;
 	uint8_t name_len;
-	
+
 	if (sa->sa_family == AF_INET)
 		addr = &((const struct sockaddr_in *)sa)->sin_addr;
 	else if (sa->sa_family == AF_INET6)
