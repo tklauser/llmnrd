@@ -24,5 +24,10 @@
 #define log_err(fmt, args...)	fprintf(stderr, "Error: " fmt, ##args)
 #define log_warn(fmt, args...)	fprintf(stderr, "Warning: " fmt, ##args)
 #define log_info(fmt, args...)	fprintf(stdout, fmt, ##args)
+#ifdef DEBUG
+# define log_dbg(fmt, args...)	fprintf(stdout, fmt, ##args)
+#else
+# define log_dbg(fmt, args...)
+#endif
 
 #endif /* LOG_H */

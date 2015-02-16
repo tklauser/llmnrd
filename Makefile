@@ -14,6 +14,10 @@ LDFLAGS	?=
 CCQ	= @echo -e "  CC\t$<" && $(CC)
 LDQ	= @echo -e "  LD\t$@" && $(CC)
 
+ifeq ($(DEBUG), 1)
+  CFLAGS += -g -DDEBUG
+endif
+
 all: $(P)
 
 $(P): $(OBJS)
