@@ -167,7 +167,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 
 		log_info("Response packet length: %zu\n", pkt_len(p));
 
-		if (sendto(sock, p->head, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0) {
+		if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0) {
 			log_err("Failed to send response: %s\n", strerror(errno));
 		}
 

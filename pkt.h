@@ -1,9 +1,10 @@
 /*
  * Packet buffer structure and utilities.
  *
- * Based on pkt_buff.h from the netsniff-ng toolkit.
- *
  * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ *
+ * Based on pkt_buff.h from the netsniff-ng toolkit which is:
+ *
  * Copyright (C) 2012 Christoph Jaeger
  *
  * This file is part of llmnrd.
@@ -28,10 +29,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "log.h"
 #include "util.h"
 
 struct pkt {
-	uint8_t *head;
 	uint8_t *data;
 	uint8_t *tail;
 	size_t size;
@@ -39,7 +40,7 @@ struct pkt {
 
 static inline bool pkt_invariant(struct pkt *p)
 {
-	return p && (p->head <= p->data) && (p->data <= p->tail);
+	return p && (p->data <= p->tail);
 }
 
 static inline struct pkt *pkt_alloc(size_t size)
@@ -47,7 +48,7 @@ static inline struct pkt *pkt_alloc(size_t size)
 	struct pkt *p = xmalloc(sizeof(*p) + size);
 	uint8_t *data = (uint8_t *)p + sizeof(*p);
 
-	p->head = p->data = p->tail = data;
+	p->data = p->tail = data;
 
 	return p;
 }
@@ -66,15 +67,24 @@ static inline size_t pkt_len(struct pkt *p)
 
 static inline uint8_t *pkt_put(struct pkt *p, size_t len)
 {
-	uint8_t *data = NULL;
+	uint8_t *data;
 
 	assert(pkt_invariant(p));
 
 	if (len <= pkt_len(p)) {
 		data = p->tail;
 		p->tail += len;
-	} else
-		assert(false);	/* TODO */
+	} else {
+		/* grow packet */
+		size_t new_size = p->size + len - pkt_len(p);
+		struct pkt *np = xrealloc(p, sizeof(*np) + new_size);
+
+		log_dbg("Reallocating packet from %zu to %zu bytes\n", p->size, new_size);
+		data = (uint8_t *)np + sizeof(*np);
+
+		np->data = data;
+		np->tail = data + pkt_len(p);
+	}
 
 	return data;
 }
