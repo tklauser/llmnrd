@@ -59,6 +59,13 @@ static inline void pkt_free(struct pkt *p)
 	free(p);
 }
 
+static inline void pkt_reset(struct pkt *p)
+{
+	assert(pkt_invariant(p));
+
+	p->tail = p->data;
+}
+
 static inline size_t pkt_len(struct pkt *p)
 {
 	assert(pkt_invariant(p));
