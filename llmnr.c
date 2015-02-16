@@ -55,7 +55,6 @@ static bool llmnr_name_matches(const uint8_t *query)
 	for (i = 1; i < llmnr_hostname[0]; i++)
 		if (tolower(query[i]) != tolower(llmnr_hostname[i]))
 			return false;
-	log_info("hostname matches\n");
 	return true;
 }
 
@@ -108,8 +107,6 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	}
 
 	n = iface_addr_lookup(ifindex, family, addrs, ARRAY_SIZE(addrs));
-
-	log_info("Responding with %zu addresses\n", n);
 
 	/*
 	 * This is the max response length (i.e. using all IPv6 addresses and
@@ -167,8 +164,6 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		/* RDATA */
 		memcpy(pkt_put(p, addr_size), addr, addr_size);
 	}
-
-	log_info("Response packet length: %zu\n", pkt_len(p));
 
 	if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0) {
 		log_err("Failed to send response: %s\n", strerror(errno));
