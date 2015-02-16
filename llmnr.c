@@ -67,6 +67,15 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	uint8_t name_len = query[0];
 	/* skip name length & additional '\0' byte */
 	const uint8_t *query_name_end = query + name_len + 2;
+	size_t i, n, response_len;
+	unsigned char family = AF_UNSPEC;
+	/*
+	 * arbitrary restriction to 16 addresses per interface for the
+	 * sake of a simple, atomic interface
+	 */
+	struct sockaddr_storage addrs[16];
+	struct pkt *p;
+	struct llmnr_hdr *r;
 
 	if ((query_len - name_len - 2) < 4) {
 		log_err("Invalid query format\n");
@@ -78,101 +87,94 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 
 	log_info("query len: %zu type %04x class %04x\n", query_len - name_len - 2, qtype, qclass);
 
-	if (qclass == LLMNR_QCLASS_IN) {
-		size_t i, n, response_len;
-		unsigned char family = AF_UNSPEC;
-		/*
-		 * arbitrary restriction to 16 addresses per interface for the
-		 * sake of a simple, atomic interface
-		 */
-		struct sockaddr_storage addrs[16];
-		struct pkt *p;
-		struct llmnr_hdr *r;
-
-		switch (qtype) {
-		case LLMNR_QTYPE_A:
-			family = AF_INET;
-			break;
-		case LLMNR_QTYPE_AAAA:
-			family = AF_INET6;
-			break;
-		case LLMNR_QTYPE_ANY:
-			family = AF_UNSPEC;
-			break;
-		default:
-			log_err("Unsupported QTYPE: %04x\n", qtype);
-			return;
-		}
-
-		n = iface_addr_lookup(ifindex, family, addrs, ARRAY_SIZE(addrs));
-
-		log_info("Responding with %zu addresses\n", n);
-
-		/*
-		 * This is the max response length (i.e. using all IPv6
-		 * addresses). We might not use all of it.
-		 */
-		response_len = n * (1 + name_len + 1 + 2 + 2 + 4 + 2 + sizeof(struct in6_addr));
-		p = pkt_alloc(sizeof(*hdr) + query_len + response_len);
-
-		/* fill the LLMNR header */
-		r = (struct llmnr_hdr *)pkt_put(p, sizeof(*r));
-		r->id = hdr->id;
-		/* response flag */
-		r->flags = htons(LLMNR_F_QR);
-		r->qdcount = hdr->qdcount;
-		r->ancount = htons(n);
-		r->nscount = 0;
-		r->arcount = 0;
-
-		/* copy the original question */
-		memcpy(pkt_put(p, query_len), query, query_len);
-
-		/* append an RR for each address */
-		for (i = 0; i < n; i++) {
-			void *addr;
-			size_t addr_size;
-
-			if (addrs[i].ss_family == AF_INET) {
-				struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
-				addr = &sin->sin_addr;
-				addr_size = sizeof(sin->sin_addr);
-			} else if (addrs[i].ss_family == AF_INET6) {
-				struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addrs[i];
-				addr = &sin6->sin6_addr;
-				addr_size = sizeof(sin6->sin6_addr);
-			} else {
-				/* skip */
-				continue;
-			}
-
-			/*
-			 * NAME
-			 *
-			 * TODO: Implement message compression (RFC 1035,
-			 * section 4.1.3)
-			 */
-			memcpy(pkt_put(p, llmnr_hostname[0]), llmnr_hostname, llmnr_hostname[0] + 2);
-			/* TYPE */
-			pkt_put_u16(p, qtype);
-			/* CLASS */
-			pkt_put_u16(p, LLMNR_CLASS_IN);
-			/* TTL */
-			pkt_put_u32(p, LLMNR_TTL_DEFAULT);
-			/* RDLENGTH */
-			pkt_put_u16(p, addr_size);
-			/* RDATA */
-			memcpy(pkt_put(p, addr_size), addr, addr_size);
-		}
-
-		log_info("Response packet length: %zu\n", pkt_len(p));
-
-		if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0) {
-			log_err("Failed to send response: %s\n", strerror(errno));
-		}
-
-		pkt_free(p);
+	if (qclass != LLMNR_QCLASS_IN) {
+		log_dbg("Unsupported QCLASS: %04x\n", qclass);
+		return;
 	}
+
+	switch (qtype) {
+	case LLMNR_QTYPE_A:
+		family = AF_INET;
+		break;
+	case LLMNR_QTYPE_AAAA:
+		family = AF_INET6;
+		break;
+	case LLMNR_QTYPE_ANY:
+		family = AF_UNSPEC;
+		break;
+	default:
+		log_dbg("Unsupported QTYPE: %04x\n", qtype);
+		return;
+	}
+
+	n = iface_addr_lookup(ifindex, family, addrs, ARRAY_SIZE(addrs));
+
+	log_info("Responding with %zu addresses\n", n);
+
+	/*
+	 * This is the max response length (i.e. using all IPv6 addresses and
+	 * not message compression). We might not use all of it.
+	 */
+	response_len = n * (1 + name_len + 1 + 2 + 2 + 4 + 2 + sizeof(struct in6_addr));
+	p = pkt_alloc(sizeof(*hdr) + query_len + response_len);
+
+	/* fill the LLMNR header */
+	r = (struct llmnr_hdr *)pkt_put(p, sizeof(*r));
+	r->id = hdr->id;
+	/* response flag */
+	r->flags = htons(LLMNR_F_QR);
+	r->qdcount = hdr->qdcount;
+	r->ancount = htons(n);
+	r->nscount = 0;
+	r->arcount = 0;
+
+	/* copy the original question */
+	memcpy(pkt_put(p, query_len), query, query_len);
+
+	/* append an RR for each address */
+	for (i = 0; i < n; i++) {
+		void *addr;
+		size_t addr_size;
+
+		if (addrs[i].ss_family == AF_INET) {
+			struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
+			addr = &sin->sin_addr;
+			addr_size = sizeof(sin->sin_addr);
+		} else if (addrs[i].ss_family == AF_INET6) {
+			struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addrs[i];
+			addr = &sin6->sin6_addr;
+			addr_size = sizeof(sin6->sin6_addr);
+		} else {
+			/* skip */
+			continue;
+		}
+
+		/*
+		 * NAME
+		 *
+		 * TODO: Implement message compression (RFC 1035,
+		 * section 4.1.3)
+		 */
+		memcpy(pkt_put(p, llmnr_hostname[0]), llmnr_hostname, llmnr_hostname[0] + 2);
+		/* TYPE */
+		pkt_put_u16(p, qtype);
+		/* CLASS */
+		pkt_put_u16(p, LLMNR_CLASS_IN);
+		/* TTL */
+		pkt_put_u32(p, LLMNR_TTL_DEFAULT);
+		/* RDLENGTH */
+		pkt_put_u16(p, addr_size);
+		/* RDATA */
+		memcpy(pkt_put(p, addr_size), addr, addr_size);
+	}
+
+	log_info("Response packet length: %zu\n", pkt_len(p));
+
+	if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0) {
+		log_err("Failed to send response: %s\n", strerror(errno));
+	}
+
+	pkt_free(p);
 }
 
 static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, size_t len,
