@@ -49,6 +49,7 @@ static inline struct pkt *pkt_alloc(size_t size)
 	uint8_t *data = (uint8_t *)p + sizeof(*p);
 
 	p->data = p->tail = data;
+	p->size = size;
 
 	return p;
 }
