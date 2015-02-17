@@ -197,7 +197,7 @@ int main(int argc, char **argv)
 				/* compression? */
 				if (nl & 0xC0) {
 					uint16_t ptr = (nl & 0x3F) << 8 | *pkt_put(p, 1);
-					name = (char *)p->data + ptr;
+					name = (char *)p->data + ptr + 1;
 				} else
 					name = (char *)pkt_put(p, nl + 1);
 
