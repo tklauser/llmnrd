@@ -21,6 +21,7 @@
 #define UTIL_H
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -54,5 +55,17 @@ void *xmalloc(size_t size);
 void *xzalloc(size_t size);
 void *xrealloc(void *ptr, size_t size);
 char *xstrdup(const char *s);
+
+static inline bool xstreq(const char *str1, const char *str2)
+{
+	size_t n = strlen(str1);
+
+	if (n != strlen(str2))
+		return false;
+	if (strncmp(str1, str2, n) != 0)
+		return false;
+
+	return true;
+}
 
 #endif /* UTIL_H */
