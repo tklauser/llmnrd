@@ -4,12 +4,12 @@
 
 # llmnrd binary
 D_P 	= llmnrd
-D_OBJS	= llmnr.o iface.o socket.o util.o main.o
+D_OBJS	= llmnr.o iface.o socket.o util.o llmnrd.o
 D_LIBS	= -lpthread
 
 # llmnr-query binary
 Q_P 	= llmnr-query
-Q_OBJS	= llmnr-query.o util.o
+Q_OBJS	= util.o llmnr-query.o
 Q_LIBS	=
 
 CC	= $(CROSS_COMPILE)gcc
