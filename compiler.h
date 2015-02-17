@@ -20,10 +20,12 @@
 #define COMPILER_H
 
 #ifdef __GNUC__
-# define __noreturn	__attribute__((noreturn))
-# define __packed	__attribute__((packed))
-# define __unused	__attribute__((unused))
-# define offsetof(a, b)	__builtin_offsetof(a, b)
+# define __noreturn		__attribute__((noreturn))
+# define __packed		__attribute__((packed))
+# define __unused		__attribute__((unused))
+# ifndef offsetof
+#  define offsetof(a, b)	__builtin_offsetof(a, b)
+# endif
 #else
 # define __noreturn
 # define __packed
