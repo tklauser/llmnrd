@@ -142,13 +142,14 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		} else
 			continue;
 
-		/*
-		 * NAME
-		 *
-		 * TODO: Implement message compression (RFC 1035,
-		 * section 4.1.3)
-		 */
-		memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
+		/* NAME */
+		if (i == 0)
+			memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
+		else {
+			/* message compression (RFC 1035, section 4.1.3) */
+			uint16_t ptr = 0xC000 | (sizeof(*hdr) + query_len);
+			pkt_put_u16(p, ntohs(ptr));
+		}
 		/* TYPE */
 		pkt_put_u16(p, htons(type));
 		/* CLASS */
