@@ -2,6 +2,8 @@
 #
 # Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
 
+VERSION = 0.1-rc1
+
 # llmnrd binary
 D_P 	= llmnrd
 D_OBJS	= llmnr.o iface.o socket.o util.o llmnrd.o
@@ -18,12 +20,15 @@ INSTALL	= install
 CFLAGS	?= -W -Wall -O2
 LDFLAGS	?=
 
+CFLAGS	+= -DVERSION_STRING=\"v$(VERSION)\"
+
 ifeq ($(DEBUG), 1)
   CFLAGS += -g -DDEBUG
 endif
 
-CCQ	= @echo "  CC $<" && $(CC)
-LDQ	= @echo "  LD $@" && $(CC)
+Q	?= @
+CCQ	= $(Q)echo "  CC $<" && $(CC)
+LDQ	= $(Q)echo "  LD $@" && $(CC)
 
 prefix	?= /usr/local
 

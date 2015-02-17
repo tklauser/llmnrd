@@ -35,12 +35,13 @@
 #include "log.h"
 #include "pkt.h"
 
-static const char *short_ops = "c:i:p:T:h";
+static const char *short_ops = "c:i:p:T:hV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
 	{ "interval",	required_argument,	NULL, 'i' },
 	{ "type",	required_argument,	NULL, 'T' },
 	{ "help",	no_argument,		NULL, 'h' },
+	{ "version",	no_argument,		NULL, 'V' },
 	{ NULL,		0,			NULL, 0 },
 };
 
@@ -51,8 +52,17 @@ static void __noreturn usage_and_exit(int status)
 			"  -c, --count     number of queries to send (default: 1)\n"
 			"  -i, --interval  interval between queries in ms (default: 500)\n"
 			"  -T, --type      LLMNR query type, must be one of A, AAAA, ANY (default: A)\n"
-			"  -h, --help      show this help and exit");
+			"  -h, --help      show this help and exit\n"
+			"  -V, --version   show version information and exit\n");
 	exit(status);
+}
+
+static void __noreturn version_and_exit(void)
+{
+	fprintf(stdout, "llmnr-query %s\n"
+			"Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>\n"
+			"Licensed unter the GNU General Public License, version 2\n", VERSION_STRING);
+	exit(EXIT_SUCCESS);
 }
 
 static const char *query_type(uint16_t qtype)
@@ -98,6 +108,8 @@ int main(int argc, char **argv)
 				usage_and_exit(EXIT_FAILURE);
 			}
 			break;
+		case 'V':
+			version_and_exit();
 		case 'h':
 			usage_and_exit(EXIT_SUCCESS);
 		default:

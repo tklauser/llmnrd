@@ -37,12 +37,13 @@
 #include "llmnr.h"
 #include "llmnr-packet.h"
 
-static const char *short_opts = "H:p:dh";
+static const char *short_opts = "H:p:dhV";
 static const struct option long_opts[] = {
 	{ "hostname",	required_argument,	NULL, 'H' },
 	{ "port",	required_argument,	NULL, 'p' },
 	{ "daemonize",	no_argument,		NULL, 'd' },
 	{ "help",	no_argument,		NULL, 'h' },
+	{ "version",	no_argument,		NULL, 'V' },
 	{ NULL,		0,			NULL, 0 },
 };
 
@@ -53,9 +54,18 @@ static void __noreturn usage_and_exit(int status)
 			"  -H, --hostname <name>  set hostname to respond with (default: system hostname)\n"
 			"  -p, --port <number>    set port number to listen on (default: %d)\n"
 			"  -d, --daemonize        run as daemon in the background\n"
-			"  -h, --help             show this help and exit\n",
+			"  -h, --help             show this help and exit\n"
+			"  -V, --version          show version information and exit\n",
 			LLMNR_UDP_PORT);
 	exit(status);
+}
+
+static void __noreturn version_and_exit(void)
+{
+	fprintf(stdout, "llmnrd %s\n"
+			"Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>\n"
+			"Licensed unter the GNU General Public License, version 2\n", VERSION_STRING);
+	exit(EXIT_SUCCESS);
 }
 
 static void signal_handler(int sig)
@@ -114,11 +124,12 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;
 			}
 			port = num_arg;
+		case 'V':
+			version_and_exit();
 		case 'h':
-			ret = EXIT_SUCCESS;
-			/* fall through */
+			usage_and_exit(EXIT_SUCCESS);
 		default:
-			usage_and_exit(ret);
+			usage_and_exit(EXIT_FAILURE);
 		}
 	}
 
