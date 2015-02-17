@@ -10,14 +10,28 @@ Installation
 
 To build and install llmnrd use the following commands:
 
-$ make
-$ sudo make install
+  $ make
+  $ sudo make install
 
 By default, the llmnrd binary will be installed to /usr/local/sbin. To install
 the binary to a different installation path, use:
 
-$ make
-$ sudo make prefix=<path> install
+  $ make
+  $ sudo make prefix=<path> install
+
+Cross-Compilation
+-----------------
+
+To cross-compile llmnrd for a different architecture, use the CROSS_COMPILE make
+variable. To e.g. build it using the arm-linux-gnueabihf toolchain use:
+
+  $ make CROSS_COMPILE=arm-linux-gnueabihf-
+
+When cross-compiling, you usually don't want to install the generated binary to
+your root filesystem, but to the sysroot of a cross-compiled system. Use the
+DESTDIR variable to change the installation destination path, e.g.
+
+  $ make DESTDIR=$HOME/sysroot/ prefix=/usr install
 
 License
 -------
