@@ -5,6 +5,9 @@ llmnrd is a daemon implementing the Link-Local Multicast Name Resolution (LLMNR)
 protocol according to RFC 4795. It currently only supports Linux, as it uses the
 netlink kernel interface.
 
+llmnrd will respond to name resolution queries sent by Windows clients in
+networks where no DNS server is available. It supports both IPv4 and IPv6.
+
 Installation
 ------------
 
@@ -48,3 +51,16 @@ Author
 ------
 
 llmnrd is authored and maintained by Tobias Klauser <tklauser@distanz.ch>
+
+References
+----------
+
+RFC 4795
+  https://tools.ietf.org/html/rfc4795
+
+Microsoft TechNet article about LLMNR
+  https://technet.microsoft.com/en-us/library/bb878128.aspx
+
+xllmnrd: An IPv6-only LLMNR responder daemon
+  http://www.vx68k.org/xllmnrd
+  https://bitbucket.org/kazssym/xllmnrd/
