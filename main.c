@@ -35,6 +35,7 @@
 
 #include "iface.h"
 #include "llmnr.h"
+#include "llmnr-packet.h"
 
 static const char *short_opts = "H:p:dh";
 static const struct option long_opts[] = {
@@ -47,7 +48,13 @@ static const struct option long_opts[] = {
 
 static void __noreturn usage_and_exit(int status)
 {
-	fprintf(stdout, "Usage: llmnrd [OPTIONS]\n");
+	fprintf(stdout, "Usage: llmnrd [OPTIONS]\n"
+			"Options:\n"
+			"  -H, --hostname <name>  set hostname to respond with (default: system hostname)\n"
+			"  -p, --port <number>    set port number to listen on (default: %d)\n"
+			"  -d, --daemonize        run as daemon in the background\n"
+			"  -h, --help             show this help and exit\n",
+			LLMNR_UDP_PORT);
 	exit(status);
 }
 
@@ -90,7 +97,7 @@ int main(int argc, char **argv)
 	long num_arg;
 	bool daemonize = false;
 	char *hostname = "";
-	uint16_t port = 0;
+	uint16_t port = LLMNR_UDP_PORT;
 
 	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
 		switch (c) {
