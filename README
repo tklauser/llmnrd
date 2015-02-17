@@ -5,6 +5,23 @@ llmnrd is a daemon implementing the Link-Local Multicast Name Resolution (LLMNR)
 protocol according to RFC 4795. It currently only supports Linux, as it uses the
 netlink kernel interface.
 
+Installation
+------------
+
+To build and install llmnrd use the following commands:
+
+$ make
+$ sudo make install
+
+By default, the llmnrd binary will be installed to /usr/local/sbin. To install
+the binary to a different installation path, use:
+
+$ make
+$ sudo make prefix=<path> install
+
+License
+-------
+
 llmnrd is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
 Foundation, version 2 of the License.
