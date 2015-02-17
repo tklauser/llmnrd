@@ -132,15 +132,18 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	for (i = 0; i < n; i++) {
 		void *addr;
 		size_t addr_size;
+		uint16_t type;
 
 		if (addrs[i].ss_family == AF_INET) {
 			struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
 			addr = &sin->sin_addr;
 			addr_size = sizeof(sin->sin_addr);
+			type = LLMNR_TYPE_A;
 		} else if (addrs[i].ss_family == AF_INET6) {
 			struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addrs[i];
 			addr = &sin6->sin6_addr;
 			addr_size = sizeof(sin6->sin6_addr);
+			type = LLMNR_TYPE_AAAA;
 		} else {
 			/* skip */
 			continue;
@@ -154,7 +157,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		 */
 		memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
 		/* TYPE */
-		pkt_put_u16(p, htons(qtype));
+		pkt_put_u16(p, htons(type));
 		/* CLASS */
 		pkt_put_u16(p, htons(LLMNR_CLASS_IN));
 		/* TTL */
