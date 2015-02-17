@@ -76,20 +76,16 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	struct pkt *p;
 	struct llmnr_hdr *r;
 
-	if ((query_len - name_len - 2) < 4) {
-		log_err("Invalid query format\n");
+	/* 4 bytes expected for QTYPE and QCLASS */
+	if ((query_len - name_len - 2) < (sizeof(qtype) + sizeof(qclass)))
 		return;
-	}
 
 	qtype = ntohs(*((uint16_t *)query_name_end));
 	qclass = ntohs(*((uint16_t *)query_name_end + 1));
 
-	log_info("query len: %zu type %04x class %04x\n", query_len - name_len - 2, qtype, qclass);
-
-	if (qclass != LLMNR_QCLASS_IN) {
-		log_dbg("Unsupported QCLASS: %04x\n", qclass);
+	/* Ony IN queries supported */
+	if (qclass != LLMNR_QCLASS_IN)
 		return;
-	}
 
 	switch (qtype) {
 	case LLMNR_QTYPE_A:
@@ -102,7 +98,6 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		family = AF_UNSPEC;
 		break;
 	default:
-		log_dbg("Unsupported QTYPE: %04x\n", qtype);
 		return;
 	}
 
@@ -144,10 +139,8 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 			addr = &sin6->sin6_addr;
 			addr_size = sizeof(sin6->sin6_addr);
 			type = LLMNR_TYPE_AAAA;
-		} else {
-			/* skip */
+		} else
 			continue;
-		}
 
 		/*
 		 * NAME
@@ -168,9 +161,8 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		memcpy(pkt_put(p, addr_size), addr, addr_size);
 	}
 
-	if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0) {
+	if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0)
 		log_err("Failed to send response: %s\n", strerror(errno));
-	}
 
 	pkt_free(p);
 }
@@ -179,53 +171,33 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 				 int sock, const struct sockaddr *sa)
 {
 	const struct llmnr_hdr *hdr = (const struct llmnr_hdr *)pktbuf;
-	uint16_t id, flags, qdcount;
-	char rhost[INET6_ADDRSTRLEN];
-	char ifname[IF_NAMESIZE];
-	const void *addr = NULL;
+	uint16_t flags, qdcount;
 	const uint8_t *query;
 	size_t query_len;
 	uint8_t name_len;
 
-	if (sa->sa_family == AF_INET)
-		addr = &((const struct sockaddr_in *)sa)->sin_addr;
-	else if (sa->sa_family == AF_INET6)
-		addr = &((const struct sockaddr_in6 *)sa)->sin6_addr;
-
-	if (!addr || !inet_ntop(sa->sa_family, addr, rhost, sizeof(rhost)))
-		strncpy(rhost, "<unknown>", sizeof(rhost) - 1);
-
-	if (len < sizeof(struct llmnr_hdr)) {
-		log_warn("Short packet received (%zu bytes) from host %s\n", len, rhost);
+	/* Query too short? */
+	if (len < sizeof(struct llmnr_hdr))
 		return;
-	}
 
-	id = ntohs(hdr->id);
 	flags = ntohs(hdr->flags);
 	qdcount = ntohs(hdr->qdcount);
 
-	log_info("LLMNR packet (%zu bytes) from host %s on interface %s\n", len,
-		 rhost, if_indextoname(ifindex, ifname));
-	log_info("[ id 0x%04x flags %04x qdcount %04x ]\n", id, flags, qdcount);
-
+	/* Query invalid as per RFC 4795, section 2.1.1? */
 	if (((flags & (LLMNR_F_QR | LLMNR_F_OPCODE)) != 0) ||
-	    qdcount != 1 || hdr->ancount != 0 || hdr->nscount != 0) {
-		/* silently discard invalid queries */
+	    qdcount != 1 || hdr->ancount != 0 || hdr->nscount != 0)
 		return;
-	}
 
 	query = pktbuf + sizeof(struct llmnr_hdr);
 	query_len = len - sizeof(struct llmnr_hdr);
 	name_len = query[0];
-	if (name_len == 0 || name_len >= query_len || query[1 + name_len] != 0) {
-		log_warn("Invalid query format received from host %s\n", rhost);
+	/* Invalid name in query? */
+	if (name_len == 0 || name_len >= query_len || query[1 + name_len] != 0)
 		return;
-	}
 
-	log_info("[ query %s (%zu bytes) ]\n", (char*)query + 1, query_len);
-	if (query_len > name_len && llmnr_name_matches(query)) {
+	/* Authoritative? */
+	if (llmnr_name_matches(query))
 		llmnr_respond(ifindex, hdr, query, query_len, sock, sa);
-	}
 }
 
 int llmnr_run(const char *hostname, uint16_t port)

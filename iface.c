@@ -339,8 +339,6 @@ static void* iface_run_wrapper(void *data __unused)
 
 int iface_start_thread(void)
 {
-	log_info("Starting interface monitoring thread\n");
-
 	if (pthread_create(&iface_thread, NULL, iface_run_wrapper, NULL) < 0) {
 		log_err("Failed to start interface monitoring thread\n");
 		return -1;
