@@ -74,12 +74,6 @@ int socket_open_v4(uint16_t port)
 		goto err;
 	}
 
-	/* disable multicast loopback */
-	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &NO, sizeof(NO)) < 0) {
-		log_err("Failed to disable multicast loopback: %s\n", strerror(errno));
-		goto err;
-	}
-
 	return sock;
 err:
 	close(sock);
