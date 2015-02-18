@@ -18,6 +18,7 @@
  * along with llmnrd.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <errno.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -149,7 +150,10 @@ int main(int argc, char **argv)
 	}
 
 	if (daemonize) {
-		/* TODO */
+		if (daemon(0, 0) != 0) {
+			log_err("Failed to daemonize process: %s\n", strerror(errno));
+			return EXIT_FAILURE;
+		}
 	}
 
 	if (iface_start_thread() < 0)
