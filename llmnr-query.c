@@ -61,9 +61,9 @@ static void __noreturn usage_and_exit(int status)
 
 static void __noreturn version_and_exit(void)
 {
-	fprintf(stdout, "llmnr-query %s (git id %s)\n"
+	fprintf(stdout, "llmnr-query %s %s\n"
 			"Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>\n"
-			"Licensed unter the GNU General Public License, version 2\n",
+			"Licensed under the GNU General Public License, version 2\n",
 			VERSION_STRING, GIT_VERSION);
 	exit(EXIT_SUCCESS);
 }

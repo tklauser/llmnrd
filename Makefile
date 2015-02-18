@@ -3,7 +3,6 @@
 # Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
 
 VERSION = 0.1-rc1
-GIT_VERSION = `git describe --always`
 
 # llmnrd binary
 D_P 	= llmnrd
@@ -20,6 +19,12 @@ INSTALL	= install
 
 CFLAGS	?= -W -Wall -O2
 LDFLAGS	?=
+
+ifeq ($(shell git rev-parse > /dev/null 2>&1; echo $$?), 0)
+  GIT_VERSION = "(git id $(shell git describe --always))"
+else
+  GIT_VERSION =
+endif
 
 CFLAGS	+= -DVERSION_STRING=\"v$(VERSION)\" -DGIT_VERSION=\"$(GIT_VERSION)\"
 
