@@ -21,10 +21,18 @@
 
 #include <sys/socket.h>
 
-size_t iface_addr_lookup(unsigned int ifindex, unsigned char family, 
-			 struct sockaddr_storage *addrs, size_t addrs_size);
+enum iface_event_type {
+	IFACE_ADD,
+	IFACE_DEL,
+};
 
+typedef void (*iface_event_handler_t)(enum iface_event_type, int af, unsigned int ifindex);
+
+void iface_register_event_handler(iface_event_handler_t event_handler);
 int iface_start_thread(void);
 void iface_stop(void);
+
+size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
+			 struct sockaddr_storage *addrs, size_t addrs_size);
 
 #endif /* IFACE_H */

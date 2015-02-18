@@ -32,14 +32,48 @@
 #include "pkt.h"
 #include "socket.h"
 
+#include "iface.h"
 #include "llmnr-packet.h"
 #include "llmnr.h"
 
+static int llmnr_sock = -1;
+static int llmnr_sock_v6 = -1;
 static bool llmnr_running = true;
 /*
  * Host name in DNS name format (length octet + name + 0 byte)
  */
 static char llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 2];
+
+static void llmnr_iface_event_handle(enum iface_event_type type, int af, unsigned int ifindex)
+{
+	switch (af) {
+	case AF_INET:
+		socket_mcast_group_ipv4(llmnr_sock, ifindex, type == IFACE_ADD);
+		break;
+	case AF_INET6:
+		socket_mcast_group_ipv6(llmnr_sock_v6, ifindex, type == IFACE_ADD);
+		break;
+	default:
+		/* ignore */
+		break;
+	}
+}
+
+int llmnr_init(const char *hostname, uint16_t port)
+{
+	llmnr_hostname[0] = strlen(hostname);
+	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
+	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
+	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
+
+	llmnr_sock = socket_open_ipv4(port);
+	if (llmnr_sock < 0)
+		return -1;
+
+	iface_register_event_handler(&llmnr_iface_event_handle);
+
+	return 0;
+}
 
 static bool llmnr_name_matches(const uint8_t *query)
 {
@@ -201,22 +235,9 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 		llmnr_respond(ifindex, hdr, query, query_len, sock, sa);
 }
 
-int llmnr_run(const char *hostname, uint16_t port)
+int llmnr_run(void)
 {
 	int ret = -1;
-	int sock;
-
-	if (port == 0)
-		port = LLMNR_UDP_PORT;
-
-	llmnr_hostname[0] = strlen(hostname);
-	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
-	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
-	log_info("Listening on port %u, hostname %s\n", port, hostname);
-
-	sock = socket_open_v4(port);
-	if (sock < 0)
-		return -1;
 
 	while (llmnr_running) {
 		uint8_t pktbuf[2048], aux[128];
@@ -238,7 +259,7 @@ int llmnr_run(const char *hostname, uint16_t port)
 		msg.msg_control = aux;
 		msg.msg_controllen = sizeof(aux);
 
-		if ((recvlen = recvmsg(sock, &msg, 0)) < 0) {
+		if ((recvlen = recvmsg(llmnr_sock, &msg, 0)) < 0) {
 			if (errno != EINTR)
 				log_err("Failed to receive packet: %s\n", strerror(errno));
 			goto out;
@@ -251,12 +272,12 @@ int llmnr_run(const char *hostname, uint16_t port)
 			}
 		}
 
-		llmnr_packet_process(ifindex, pktbuf, recvlen, sock, (const struct sockaddr *)&saddr_r);
+		llmnr_packet_process(ifindex, pktbuf, recvlen, llmnr_sock, (const struct sockaddr *)&saddr_r);
 	}
 
 	ret = 0;
 out:
-	close(sock);
+	close(llmnr_sock);
 	return ret;
 }
 

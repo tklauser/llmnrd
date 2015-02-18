@@ -41,6 +41,7 @@
 
 static bool iface_running = true;
 static pthread_t iface_thread;
+static iface_event_handler_t iface_event_handler;
 
 struct iface_record {
 	struct list_head list;
@@ -198,7 +199,7 @@ static void iface_nlmsg_change_addr(const struct nlmsghdr *nlh)
 	rta = (const struct rtattr *)((const uint8_t *)nlh + NLMSG_SPACE(sizeof(*ifa)));
 	for ( ; RTA_OK(rta, rtalen); rta = RTA_NEXT(rta, rtalen)) {
 		char ifname[IF_NAMESIZE];
-		const char *action;
+		enum iface_event_type type;
 
 		switch (rta->rta_type) {
 		case IFA_ADDRESS:
@@ -207,17 +208,21 @@ static void iface_nlmsg_change_addr(const struct nlmsghdr *nlh)
 
 			if (nlh->nlmsg_type == RTM_NEWADDR) {
 				iface_addr_add(index, ifa->ifa_family, RTA_DATA(rta));
-				action = "Added";
+				type = IFACE_ADD;
 			} else if (nlh->nlmsg_type == RTM_DELADDR) {
 				iface_addr_del(index, ifa->ifa_family, RTA_DATA(rta));
-				action = "Deleted";
+				type = IFACE_DEL;
 			} else {
 				/* This case shouldn't occur */
 				continue;
 			}
 
+			if (iface_event_handler)
+				(*iface_event_handler)(type, ifa->ifa_family, ifa->ifa_index);
+
 			log_info("%s IPv%c address %s on interface %s\n",
-				 action, ifa->ifa_family == AF_INET ? '4' : '6', addr,
+				 type == IFACE_ADD ? "Added" : "Deleted",
+				 ifa->ifa_family == AF_INET ? '4' : '6', addr,
 				 if_indextoname(ifa->ifa_index, ifname));
 		}
 	}
@@ -288,6 +293,11 @@ static int iface_rtnl_enumerate(int sock, int type, int family)
 	}
 
 	return iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen);
+}
+
+void iface_register_event_handler(iface_event_handler_t event_handler)
+{
+	iface_event_handler = event_handler;
 }
 
 int iface_run(void)

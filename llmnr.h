@@ -21,7 +21,8 @@
 
 #include <stdint.h>
 
-int llmnr_run(const char *hostname, uint16_t port);
+int llmnr_init(const char *hostname, uint16_t port);
+int llmnr_run(void);
 void llmnr_stop(void);
 
 #endif /* LLMNR_H */

@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 	int c, ret = EXIT_FAILURE;
 	long num_arg;
 	bool daemonize = false;
-	char *hostname = "";
+	char *hostname = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 
 	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 	register_signal(SIGTERM, signal_handler);
 	register_signal(SIGHUP, signal_handler);
 
-	if (hostname[0] == '\0') {
+	if (!hostname) {
 		/* TODO: Consider hostname changing at runtime */
 		hostname = xmalloc(255);
 		if (gethostname(hostname, 255) != 0) {
@@ -156,10 +156,13 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (llmnr_init(hostname, port) < 0)
+		goto out;
+
 	if (iface_start_thread() < 0)
 		goto out;
 
-	ret = llmnr_run(hostname, port);
+	ret = llmnr_run();
 out:
 	free(hostname);
 	return ret;
