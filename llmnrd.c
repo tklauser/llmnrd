@@ -52,11 +52,11 @@ static void __noreturn usage_and_exit(int status)
 {
 	fprintf(stdout, "Usage: llmnrd [OPTIONS]\n"
 			"Options:\n"
-			"  -H, --hostname <name>  set hostname to respond with (default: system hostname)\n"
-			"  -p, --port <number>    set port number to listen on (default: %d)\n"
-			"  -d, --daemonize        run as daemon in the background\n"
-			"  -h, --help             show this help and exit\n"
-			"  -V, --version          show version information and exit\n",
+			"  -H, --hostname NAME  set hostname to respond with (default: system hostname)\n"
+			"  -p, --port NUM       set port number to listen on (default: %d)\n"
+			"  -d, --daemonize      run as daemon in the background\n"
+			"  -h, --help           show this help and exit\n"
+			"  -V, --version        show version information and exit\n",
 			LLMNR_UDP_PORT);
 	exit(status);
 }
