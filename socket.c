@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -35,11 +36,10 @@
 static const int YES = 1;
 static const int NO = 0;
 
-int socket_open_v4(uint16_t port)
+int socket_open_ipv4(uint16_t port)
 {
 	int sock;
 	struct sockaddr_in sa;
-	struct ip_mreq mreq;
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -49,7 +49,7 @@ int socket_open_v4(uint16_t port)
 
 	/* pass pktinfo struct on received packets */
 	if (setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &YES, sizeof(YES)) < 0) {
-		log_err("Failed to set IP_PKTINFO option: %s\n", strerror(errno));
+		log_err("Failed to set IPv4 packet info socket option: %s\n", strerror(errno));
 		goto err;
 	}
 
@@ -64,13 +64,41 @@ int socket_open_v4(uint16_t port)
 		goto err;
 	}
 
-	/* join the multicast group */
-	memset(&mreq, 0, sizeof(mreq));
-	mreq.imr_interface.s_addr = INADDR_ANY;
-	inet_pton(AF_INET, LLMNR_IPV4_MCAST_ADDR, &mreq.imr_multiaddr);
+	return sock;
+err:
+	close(sock);
+	return -1;
+}
 
-	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-		log_err("Failed to join multicast group: %s\n", strerror(errno));
+int socket_open_ipv6(uint16_t port)
+{
+	int sock, opt_pktinfo;
+	struct sockaddr_in6 sa;
+
+	sock = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		log_err("Failed to open UDP socket: %s\n", strerror(errno));
+		return -1;
+	}
+
+	/* pass pktinfo struct on received packets */
+#if defined(IPV6_RECVPKTINFO)
+	opt_pktinfo = IPV6_RECVPKTINFO;
+#elif defined(IPV6_PKTINFO)
+	opt_pktinfo = IPV6_PKTINFO;
+#endif
+	if (setsockopt(sock, IPPROTO_IPV6, opt_pktinfo, &YES, sizeof(YES)) < 0) {
+		log_err("Failed to set IPv4 packet info socket option: %s\n", strerror(errno));
+		goto err;
+	}
+
+	/* bind the socket */
+	memset(&sa, 0, sizeof(sa));
+	sa.sin6_family = AF_INET6;
+	sa.sin6_port = htons(port);
+
+	if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+		log_err("Failed to bind() socket: %s\n", strerror(errno));
 		goto err;
 	}
 
@@ -110,4 +138,50 @@ int socket_open_rtnl(void)
 err:
 	close(sock);
 	return -1;
+}
+
+int socket_mcast_group_ipv4(int sock, unsigned int ifindex, bool join)
+{
+	struct ip_mreqn mreq;
+	char ifname[IF_NAMESIZE];
+
+	/* silently ignore, we might not be listening on an IPv4 socket */
+	if (sock < 0)
+		return -1;
+
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.imr_ifindex = ifindex;
+	mreq.imr_address.s_addr = INADDR_ANY;
+	inet_pton(AF_INET, LLMNR_IPV4_MCAST_ADDR, &mreq.imr_multiaddr);
+
+	if (setsockopt(sock, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+		       &mreq, sizeof(mreq)) < 0) {
+		log_err("Failed to join multicast group on interface %s: %s\n",
+			if_indextoname(ifindex, ifname), strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
+int socket_mcast_group_ipv6(int sock, unsigned int ifindex, bool join)
+{
+	struct ipv6_mreq mreq;
+	char ifname[IF_NAMESIZE];
+
+	/* silently ignore, we might not be listening on an IPv6 socket */
+	if (sock < 0)
+		return -1;
+
+	memset(&mreq, 0, sizeof(mreq));
+	inet_pton(AF_INET6, LLMNR_IPV6_MCAST_ADDR, &mreq.ipv6mr_multiaddr);
+
+	if (setsockopt(sock, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+		       &mreq, sizeof(mreq)) < 0) {
+		log_err("Failed to join multicast group on interface %s: %s\n",
+			if_indextoname(ifindex, ifname), strerror(errno));
+		return -1;
+	}
+
+	return 0;
 }
