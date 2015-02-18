@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -35,10 +36,11 @@
 #include "log.h"
 #include "pkt.h"
 
-static const char *short_ops = "c:i:p:T:6hV";
+static const char *short_ops = "c:i:I:T:6hV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
 	{ "interval",	required_argument,	NULL, 'i' },
+	{ "interface", 	required_argument,	NULL, 'I' },
 	{ "type",	required_argument,	NULL, 'T' },
 	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "help",	no_argument,		NULL, 'h' },
@@ -48,14 +50,15 @@ static const struct option long_opts[] = {
 
 static void __noreturn usage_and_exit(int status)
 {
-	fprintf(stdout, "Usage: llmnr-query [OPTIONS...] <query-name>\n"
+	fprintf(stdout, "Usage: llmnr-query [OPTIONS...] NAME\n"
 			"Options:\n"
-			"  -c, --count <number>     number of queries to send (default: 1)\n"
-			"  -i, --interval <number>  interval between queries in ms (default: 500)\n"
-			"  -T, --type <type>        set query type; must be one of A, AAAA, ANY (default: A)\n"
-			"  -6, --ipv6               use IPv6\n"
-			"  -h, --help               show this help and exit\n"
-			"  -V, --version            show version information and exit\n");
+			"  -c, --count NUM       number of queries to send (default: 1)\n"
+			"  -i, --interval NUM    interval between queries in ms (default: 500)\n"
+			"  -I, --interface NAME  send multicast over specified interface\n"
+			"  -T, --type TYPE       set query type; must be one of A, AAAA, ANY (default: A)\n"
+			"  -6, --ipv6            send queries over IPv6\n"
+			"  -h, --help            show this help and exit\n"
+			"  -V, --version         show version information and exit\n");
 	exit(status);
 }
 
@@ -85,7 +88,7 @@ static const char *query_type(uint16_t qtype)
 int main(int argc, char **argv)
 {
 	int c, sock;
-	const char *query_name;
+	const char *query_name, *iface = NULL;
 	size_t query_name_len;
 	unsigned long i, count = 1, interval = 500;
 	uint16_t qtype = LLMNR_QTYPE_A;
@@ -99,6 +102,9 @@ int main(int argc, char **argv)
 			break;
 		case 'i':
 			interval = strtoul(optarg, NULL, 0);
+			break;
+		case 'I':
+			iface = xstrdup(optarg);
 			break;
 		case 'T':
 			if (xstreq("A", optarg))
@@ -138,6 +144,34 @@ int main(int argc, char **argv)
 	if (sock < 0) {
 		log_err("Failed to open UDP socket: %s\n", strerror(errno));
 		return -1;
+	}
+
+	if (iface != NULL) {
+		unsigned int ifindex = if_nametoindex(iface);
+
+		if (ifindex == 0 && errno != 0) {
+			log_err("Could not get interface %s: %s\n", iface, strerror(errno));
+			goto err;
+		}
+
+		if (ipv6) {
+			if (setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex, sizeof(ifindex)) < 0) {
+				log_err("Failed to set interface '%s' for IPv6 multicast socket: %s\n",
+					iface, strerror(errno));
+				goto err;
+			}
+		} else {
+			struct ip_mreqn mreq;
+
+			memset(&mreq, 0, sizeof(mreq));
+			mreq.imr_ifindex = ifindex;
+
+			if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
+				log_err("Failed to set interface '%s' for IPv4 multicast socket: %s\n",
+					iface, strerror(errno));
+				goto err;
+			}
+		}
 	}
 
 	p = pkt_alloc(128);
@@ -265,8 +299,7 @@ int main(int argc, char **argv)
 	}
 
 	pkt_free(p);
-
+err:
 	close(sock);
-
 	return 0;
 }
