@@ -19,9 +19,10 @@
 #ifndef LLMNR_H
 #define LLMNR_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
-int llmnr_init(const char *hostname, uint16_t port);
+int llmnr_init(const char *hostname, uint16_t port, bool ipv6);
 int llmnr_run(void);
 void llmnr_stop(void);
 

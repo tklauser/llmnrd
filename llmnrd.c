@@ -38,10 +38,11 @@
 #include "llmnr.h"
 #include "llmnr-packet.h"
 
-static const char *short_opts = "H:p:dhV";
+static const char *short_opts = "H:p:6dhV";
 static const struct option long_opts[] = {
 	{ "hostname",	required_argument,	NULL, 'H' },
 	{ "port",	required_argument,	NULL, 'p' },
+	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "daemonize",	no_argument,		NULL, 'd' },
 	{ "help",	no_argument,		NULL, 'h' },
 	{ "version",	no_argument,		NULL, 'V' },
@@ -54,6 +55,7 @@ static void __noreturn usage_and_exit(int status)
 			"Options:\n"
 			"  -H, --hostname NAME  set hostname to respond with (default: system hostname)\n"
 			"  -p, --port NUM       set port number to listen on (default: %d)\n"
+			"  -6, --ipv6           enable LLMNR name resolution over IPv6\n"
 			"  -d, --daemonize      run as daemon in the background\n"
 			"  -h, --help           show this help and exit\n"
 			"  -V, --version        show version information and exit\n",
@@ -107,7 +109,7 @@ int main(int argc, char **argv)
 {
 	int c, ret = EXIT_FAILURE;
 	long num_arg;
-	bool daemonize = false;
+	bool daemonize = false, ipv6 = false;
 	char *hostname = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 
@@ -126,6 +128,9 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;
 			}
 			port = num_arg;
+		case '6':
+			ipv6 = true;
+			break;
 		case 'V':
 			version_and_exit();
 		case 'h':
@@ -156,7 +161,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (llmnr_init(hostname, port) < 0)
+	if (llmnr_init(hostname, port, ipv6) < 0)
 		goto out;
 
 	if (iface_start_thread() < 0)

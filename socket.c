@@ -88,7 +88,13 @@ int socket_open_ipv6(uint16_t port)
 	opt_pktinfo = IPV6_PKTINFO;
 #endif
 	if (setsockopt(sock, IPPROTO_IPV6, opt_pktinfo, &YES, sizeof(YES)) < 0) {
-		log_err("Failed to set IPv4 packet info socket option: %s\n", strerror(errno));
+		log_err("Failed to set IPv6 packet info socket option: %s\n", strerror(errno));
+		goto err;
+	}
+
+	/* IPv6 only socket */
+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &YES, sizeof(YES)) < 0) {
+		log_err("Failed to set IPv6 only socket option: %s\n", strerror(errno));
 		goto err;
 	}
 
@@ -156,7 +162,7 @@ int socket_mcast_group_ipv4(int sock, unsigned int ifindex, bool join)
 
 	if (setsockopt(sock, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
 		       &mreq, sizeof(mreq)) < 0) {
-		log_err("Failed to join multicast group on interface %s: %s\n",
+		log_err("Failed to join IPv4 multicast group on interface %s: %s\n",
 			if_indextoname(ifindex, ifname), strerror(errno));
 		return -1;
 	}
@@ -166,19 +172,20 @@ int socket_mcast_group_ipv4(int sock, unsigned int ifindex, bool join)
 
 int socket_mcast_group_ipv6(int sock, unsigned int ifindex, bool join)
 {
-	struct ipv6_mreq mreq;
+	struct ipv6_mreq mreq6;
 	char ifname[IF_NAMESIZE];
 
 	/* silently ignore, we might not be listening on an IPv6 socket */
 	if (sock < 0)
 		return -1;
 
-	memset(&mreq, 0, sizeof(mreq));
-	inet_pton(AF_INET6, LLMNR_IPV6_MCAST_ADDR, &mreq.ipv6mr_multiaddr);
+	memset(&mreq6, 0, sizeof(mreq6));
+	mreq6.ipv6mr_interface = ifindex;
+	inet_pton(AF_INET6, LLMNR_IPV6_MCAST_ADDR, &mreq6.ipv6mr_multiaddr);
 
-	if (setsockopt(sock, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
-		       &mreq, sizeof(mreq)) < 0) {
-		log_err("Failed to join multicast group on interface %s: %s\n",
+	if (setsockopt(sock, IPPROTO_IPV6, join ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP,
+		       &mreq6, sizeof(mreq6)) < 0) {
+		log_err("Failed to join IPv6 multicast group on interface %s: %s\n",
 			if_indextoname(ifindex, ifname), strerror(errno));
 		return -1;
 	}

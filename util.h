@@ -30,7 +30,7 @@
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
 
 /*
- * min() macro with strict type-checking.
+ * min()/max() macros with strict type-checking.
  * Taken from linux/kernel.h
  */
 #undef min
@@ -39,6 +39,13 @@
 	typeof(y) _min2 = (y);		\
 	(void) (&_min1 == &_min2);	\
 	_min1 < _min2 ? _min1 : _min2; })
+
+#undef max
+#define max(x, y) ({			\
+	typeof(x) _max1 = (x);		\
+	typeof(y) _max2 = (y);		\
+	(void) (&_max1 == &_max2);	\
+	_max1 > _max2 ? _max1 : _max2; })
 
 static inline void __noreturn panic(const char *fmt, ...)
 {

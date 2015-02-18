@@ -16,6 +16,7 @@
  * along with llmnrd.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -36,8 +37,8 @@
 #include "llmnr-packet.h"
 #include "llmnr.h"
 
-static int llmnr_sock = -1;
-static int llmnr_sock_v6 = -1;
+static int llmnr_sock_ipv4 = -1;
+static int llmnr_sock_ipv6 = -1;
 static bool llmnr_running = true;
 /*
  * Host name in DNS name format (length octet + name + 0 byte)
@@ -48,10 +49,10 @@ static void llmnr_iface_event_handle(enum iface_event_type type, int af, unsigne
 {
 	switch (af) {
 	case AF_INET:
-		socket_mcast_group_ipv4(llmnr_sock, ifindex, type == IFACE_ADD);
+		socket_mcast_group_ipv4(llmnr_sock_ipv4, ifindex, type == IFACE_ADD);
 		break;
 	case AF_INET6:
-		socket_mcast_group_ipv6(llmnr_sock_v6, ifindex, type == IFACE_ADD);
+		socket_mcast_group_ipv6(llmnr_sock_ipv6, ifindex, type == IFACE_ADD);
 		break;
 	default:
 		/* ignore */
@@ -59,16 +60,22 @@ static void llmnr_iface_event_handle(enum iface_event_type type, int af, unsigne
 	}
 }
 
-int llmnr_init(const char *hostname, uint16_t port)
+int llmnr_init(const char *hostname, uint16_t port, bool ipv6)
 {
 	llmnr_hostname[0] = strlen(hostname);
 	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
 	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
 	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
 
-	llmnr_sock = socket_open_ipv4(port);
-	if (llmnr_sock < 0)
+	llmnr_sock_ipv4 = socket_open_ipv4(port);
+	if (llmnr_sock_ipv4 < 0)
 		return -1;
+
+	if (ipv6) {
+		llmnr_sock_ipv6 = socket_open_ipv6(port);
+		if (llmnr_sock_ipv6 < 0)
+			return -1;
+	}
 
 	iface_register_event_handler(&llmnr_iface_event_handle);
 
@@ -94,7 +101,7 @@ static bool llmnr_name_matches(const uint8_t *query)
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 			  const uint8_t *query, size_t query_len, int sock,
-			  const struct sockaddr *sa)
+			  const struct sockaddr_storage *sst)
 {
 	uint16_t qtype, qclass;
 	uint8_t name_len = query[0];
@@ -196,14 +203,14 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		memcpy(pkt_put(p, addr_size), addr, addr_size);
 	}
 
-	if (sendto(sock, p->data, pkt_len(p), 0, sa, sizeof(struct sockaddr_in)) < 0)
+	if (sendto(sock, p->data, pkt_len(p), 0, (struct sockaddr *)sst, sizeof(*sst)) < 0)
 		log_err("Failed to send response: %s\n", strerror(errno));
 
 	pkt_free(p);
 }
 
 static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, size_t len,
-				 int sock, const struct sockaddr *sa)
+				 int sock, const struct sockaddr_storage *sst)
 {
 	const struct llmnr_hdr *hdr = (const struct llmnr_hdr *)pktbuf;
 	uint16_t flags, qdcount;
@@ -232,7 +239,51 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 
 	/* Authoritative? */
 	if (llmnr_name_matches(query))
-		llmnr_respond(ifindex, hdr, query, query_len, sock, sa);
+		llmnr_respond(ifindex, hdr, query, query_len, sock, sst);
+}
+
+static void llmnr_recv(int sock)
+{
+	uint8_t pktbuf[2048], aux[128];
+	struct msghdr msg;
+	struct iovec io;
+	struct sockaddr_storage sin_r;
+	struct cmsghdr *cmsg;
+	ssize_t recvlen;
+	int ifindex = -1;
+
+	io.iov_base = pktbuf;
+	io.iov_len = sizeof(pktbuf);
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name = &sin_r;
+	msg.msg_namelen = sizeof(sin_r);
+	msg.msg_iov = &io;
+	msg.msg_iovlen = 1;
+	msg.msg_control = aux;
+	msg.msg_controllen = sizeof(aux);
+
+	if ((recvlen = recvmsg(sock, &msg, 0)) < 0) {
+		if (errno != EINTR)
+			log_err("Failed to receive packet: %s\n", strerror(errno));
+		return;
+	}
+
+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
+			struct in_pktinfo *in = (struct in_pktinfo *)CMSG_DATA(cmsg);
+			ifindex = in->ipi_ifindex;
+		} else if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_PKTINFO) {
+			struct in6_pktinfo *in6 = (struct in6_pktinfo *)CMSG_DATA(cmsg);
+			ifindex = in6->ipi6_ifindex;
+		}
+	}
+
+	if (ifindex >= 0)
+		llmnr_packet_process(ifindex, pktbuf, recvlen, sock,
+				     (const struct sockaddr_storage *)&sin_r);
+	else
+		log_warn("Could not get interface of incoming packet\n");
 }
 
 int llmnr_run(void)
@@ -240,44 +291,39 @@ int llmnr_run(void)
 	int ret = -1;
 
 	while (llmnr_running) {
-		uint8_t pktbuf[2048], aux[128];
-		struct msghdr msg;
-		struct iovec io;
-		struct sockaddr_in saddr_r;
-		struct cmsghdr *cmsg;
-		ssize_t recvlen;
-		unsigned int ifindex = 0;
+		fd_set rfds;
+		struct timeval tv;
+		int nfds, ret;
 
-		io.iov_base = pktbuf;
-		io.iov_len = sizeof(pktbuf);
+		FD_ZERO(&rfds);
+		FD_SET(llmnr_sock_ipv4, &rfds);
+		if (llmnr_sock_ipv6 >= 0) {
+			FD_SET(llmnr_sock_ipv6, &rfds);
+			nfds = max(llmnr_sock_ipv4, llmnr_sock_ipv6) + 1;
+		} else
+			nfds = llmnr_sock_ipv4 + 1;
 
-		memset(&msg, 0, sizeof(msg));
-		msg.msg_name = &saddr_r;
-		msg.msg_namelen = sizeof(saddr_r);
-		msg.msg_iov = &io;
-		msg.msg_iovlen = 1;
-		msg.msg_control = aux;
-		msg.msg_controllen = sizeof(aux);
+		tv.tv_sec = 0;
+		tv.tv_usec = 200;
 
-		if ((recvlen = recvmsg(llmnr_sock, &msg, 0)) < 0) {
+		ret = select(nfds, &rfds, NULL, NULL, &tv);
+		if (ret < 0) {
 			if (errno != EINTR)
-				log_err("Failed to receive packet: %s\n", strerror(errno));
+				log_err("Failed to select() on socket: %s\n", strerror(errno));
 			goto out;
+		} else if (ret) {
+			if (FD_ISSET(llmnr_sock_ipv4, &rfds))
+				llmnr_recv(llmnr_sock_ipv4);
+			if (llmnr_sock_ipv6 >= 0 && FD_ISSET(llmnr_sock_ipv6, &rfds))
+				llmnr_recv(llmnr_sock_ipv6);
 		}
-
-		for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-			if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
-				struct in_pktinfo *info = (struct in_pktinfo *)CMSG_DATA(cmsg);
-				ifindex = info->ipi_ifindex;
-			}
-		}
-
-		llmnr_packet_process(ifindex, pktbuf, recvlen, llmnr_sock, (const struct sockaddr *)&saddr_r);
 	}
 
 	ret = 0;
 out:
-	close(llmnr_sock);
+	close(llmnr_sock_ipv4);
+	if (llmnr_sock_ipv6 >= 0)
+		close(llmnr_sock_ipv6);
 	return ret;
 }
 
