@@ -35,11 +35,12 @@
 #include "log.h"
 #include "pkt.h"
 
-static const char *short_ops = "c:i:p:T:hV";
+static const char *short_ops = "c:i:p:T:6hV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
 	{ "interval",	required_argument,	NULL, 'i' },
 	{ "type",	required_argument,	NULL, 'T' },
+	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "help",	no_argument,		NULL, 'h' },
 	{ "version",	no_argument,		NULL, 'V' },
 	{ NULL,		0,			NULL, 0 },
@@ -49,11 +50,12 @@ static void __noreturn usage_and_exit(int status)
 {
 	fprintf(stdout, "Usage: llmnr-query [OPTIONS...] <query-name>\n"
 			"Options:\n"
-			"  -c, --count     number of queries to send (default: 1)\n"
-			"  -i, --interval  interval between queries in ms (default: 500)\n"
-			"  -T, --type      LLMNR query type, must be one of A, AAAA, ANY (default: A)\n"
-			"  -h, --help      show this help and exit\n"
-			"  -V, --version   show version information and exit\n");
+			"  -c, --count <number>     number of queries to send (default: 1)\n"
+			"  -i, --interval <number>  interval between queries in ms (default: 500)\n"
+			"  -T, --type <type>        set query type; must be one of A, AAAA, ANY (default: A)\n"
+			"  -6, --ipv6               use IPv6\n"
+			"  -h, --help               show this help and exit\n"
+			"  -V, --version            show version information and exit\n");
 	exit(status);
 }
 
@@ -86,6 +88,7 @@ int main(int argc, char **argv)
 	size_t query_name_len;
 	unsigned long i, count = 1, interval = 500;
 	uint16_t qtype = LLMNR_QTYPE_A;
+	bool ipv6 = false;
 	struct pkt *p;
 
 	while ((c = getopt_long(argc, argv, short_ops, long_opts, NULL)) != -1) {
@@ -108,6 +111,9 @@ int main(int argc, char **argv)
 				usage_and_exit(EXIT_FAILURE);
 			}
 			break;
+		case '6':
+			ipv6 = true;
+			break;
 		case 'V':
 			version_and_exit();
 		case 'h':
@@ -127,7 +133,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	sock = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		log_err("Failed to open UDP socket: %s\n", strerror(errno));
 		return -1;
@@ -139,7 +145,7 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < count; i++) {
 		struct llmnr_hdr *hdr;
-		struct sockaddr_in sin;
+		struct sockaddr_storage sst;
 		size_t query_pkt_len;
 		fd_set rfds;
 		struct timeval tv;
@@ -160,14 +166,30 @@ int main(int argc, char **argv)
 		pkt_put_u16(p, htons(qtype));
 		pkt_put_u16(p, htons(LLMNR_QCLASS_IN));
 
-		memset(&sin, 0, sizeof(sin));
-		sin.sin_family = AF_INET;
-		sin.sin_addr.s_addr = inet_addr(LLMNR_IPV4_MCAST_ADDR);
-		sin.sin_port = htons(LLMNR_UDP_PORT);
+		memset(&sst, 0, sizeof(sst));
+		if (ipv6) {
+			struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&sst;
+
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_port = htons(LLMNR_UDP_PORT);
+			if (inet_pton(AF_INET6, LLMNR_IPV6_MCAST_ADDR, &sin6->sin6_addr) != 1) {
+				log_err("Failed to convert IPv6 address: %s\n", strerror(errno));
+				break;
+			}
+		} else {
+			struct sockaddr_in *sin = (struct sockaddr_in *)&sst;
+
+			sin->sin_family = AF_INET;
+			sin->sin_port = htons(LLMNR_UDP_PORT);
+			if (inet_pton(AF_INET, LLMNR_IPV4_MCAST_ADDR, &sin->sin_addr) != 1) {
+				log_err("Failed to convert IPv4 address: %s\n", strerror(errno));
+				break;
+			}
+		}
 
 		query_pkt_len = pkt_len(p) - sizeof(*hdr);
 
-		if (sendto(sock, p->data, pkt_len(p), 0, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+		if (sendto(sock, p->data, pkt_len(p), 0, (struct sockaddr *)&sst, sizeof(sst)) < 0) {
 			log_err("Failed to send UDP packet: %s\n", strerror(errno));
 			break;
 		}
