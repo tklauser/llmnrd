@@ -66,8 +66,8 @@ int socket_open_v4(uint16_t port)
 
 	/* join the multicast group */
 	memset(&mreq, 0, sizeof(mreq));
-	mreq.imr_multiaddr.s_addr = inet_addr(LLMNR_IPV4_MCAST_ADDR);
 	mreq.imr_interface.s_addr = INADDR_ANY;
+	inet_pton(AF_INET, LLMNR_IPV4_MCAST_ADDR, &mreq.imr_multiaddr);
 
 	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
 		log_err("Failed to join multicast group: %s\n", strerror(errno));
