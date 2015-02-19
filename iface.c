@@ -83,17 +83,43 @@ size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 	return n;
 }
 
+static bool iface_record_addr_eq(const struct sockaddr_storage *addr1,
+				 const struct sockaddr_storage *addr2)
+{
+	int family = addr1->ss_family;
+
+	if (family != addr2->ss_family)
+		return false;
+
+	if (family == AF_INET) {
+		const struct sockaddr_in *sin1 = (const struct sockaddr_in *)addr1;
+		const struct sockaddr_in *sin2 = (const struct sockaddr_in *)addr2;
+
+		return memcmp(&sin1->sin_addr, &sin2->sin_addr, sizeof(sin1->sin_addr)) == 0;
+	} else if (family == AF_INET6) {
+		const struct sockaddr_in6 *sin1 = (const struct sockaddr_in6 *)addr1;
+		const struct sockaddr_in6 *sin2 = (const struct sockaddr_in6 *)addr2;
+
+		return memcmp(&sin1->sin6_addr, &sin2->sin6_addr, sizeof(sin1->sin6_addr)) == 0;
+	} else {
+		/* This should never happen */
+		log_warn("Unsupported address family: %d\n", family);
+		return memcmp(addr1, addr2, sizeof(*addr1));
+	}
+}
+
 static void iface_record_addr_add(struct iface_record *rec, struct sockaddr_storage *addr)
 {
 	size_t i;
 	struct sockaddr_storage *addrs = rec->addrs;
 
 	for (i = 0; i < rec->size; i++) {
-		if (memcmp(&addrs[i], addr, sizeof(*addr)) == 0)
+		/* Address already in record? */
+		if (iface_record_addr_eq(&addrs[i], addr))
 			return;
 	}
 
-	addrs = xrealloc(rec->addrs, (rec->size + 1) * sizeof(*addrs));
+	addrs = xrealloc(rec->addrs, (rec->size + 1) * sizeof(*addr));
 	memcpy(&addrs[rec->size], addr, sizeof(*addr));
 	rec->addrs = addrs;
 	rec->size++;
@@ -103,21 +129,25 @@ static void iface_record_addr_del(struct iface_record *rec, struct sockaddr_stor
 {
 	if (rec->size > 1) {
 		size_t i, j = 0;
-		struct sockaddr_storage *addrs = xmalloc((rec->size - 1) * sizeof(*addrs));
+		struct sockaddr_storage *addrs = xmalloc((rec->size - 1) * sizeof(*addr));
 
 		for (i = 0; i < rec->size; i++) {
-			if (memcmp(&addrs[i], addr, sizeof(*addr)) != 0) {
-				addrs[j] = rec->addrs[i];
+			if (!iface_record_addr_eq(&rec->addrs[i], addr)) {
+				memcpy(&addrs[j], &rec->addrs[i], sizeof(addrs[j]));
 				j++;
 			}
 		}
 
-		assert(j = i - 1);
-
-		free(rec->addrs);
-		rec->addrs = addrs;
-		rec->size--;
-	} else {
+		if (j == i - 1) {
+			free(rec->addrs);
+			rec->addrs = addrs;
+			rec->size--;
+		} else {
+			char as[INET6_ADDRSTRLEN];
+			inet_ntop(addr->ss_family, addr + sizeof(addr->ss_family), as, sizeof(as));
+			log_err("Address %s to delete not found in records\n", as);
+		}
+	} else if (rec->size == 1) {
 		free(rec->addrs);
 		rec->addrs = NULL;
 		rec->size = 0;
@@ -187,44 +217,46 @@ static void iface_nlmsg_change_link(const struct nlmsghdr *nlh __unused)
 static void iface_nlmsg_change_addr(const struct nlmsghdr *nlh)
 {
 	struct ifaddrmsg *ifa = NLMSG_DATA(nlh);
-	const struct rtattr *rta;
+	struct rtattr *rta;
 	size_t rtalen = nlh->nlmsg_len - NLMSG_SPACE(sizeof(*ifa));
+	unsigned char family = ifa->ifa_family;
 	unsigned int index = ifa->ifa_index;
-	char addr[INET6_ADDRSTRLEN];
+	char ifname[IF_NAMESIZE];
 
 	/* don't report temporary addresses */
 	if ((ifa->ifa_flags & (IFA_F_TEMPORARY | IFA_F_TENTATIVE)) != 0)
 		return;
 
-	rta = (const struct rtattr *)((const uint8_t *)nlh + NLMSG_SPACE(sizeof(*ifa)));
+	if_indextoname(index, ifname);
+
+	rta = (struct rtattr *)((const uint8_t *)nlh + NLMSG_SPACE(sizeof(*ifa)));
 	for ( ; RTA_OK(rta, rtalen); rta = RTA_NEXT(rta, rtalen)) {
-		char ifname[IF_NAMESIZE];
+		char addr[INET6_ADDRSTRLEN];
 		enum iface_event_type type;
 
-		switch (rta->rta_type) {
-		case IFA_ADDRESS:
-			if (!inet_ntop(ifa->ifa_family, RTA_DATA(rta), addr, sizeof(addr)))
-				strncpy(addr, "<unknown>", sizeof(addr) - 1);
+		if (rta->rta_type != IFA_ADDRESS)
+			continue;
 
-			if (nlh->nlmsg_type == RTM_NEWADDR) {
-				iface_addr_add(index, ifa->ifa_family, RTA_DATA(rta));
-				type = IFACE_ADD;
-			} else if (nlh->nlmsg_type == RTM_DELADDR) {
-				iface_addr_del(index, ifa->ifa_family, RTA_DATA(rta));
-				type = IFACE_DEL;
-			} else {
-				/* This case shouldn't occur */
-				continue;
-			}
+		if (!inet_ntop(family, RTA_DATA(rta), addr, sizeof(addr)))
+			strncpy(addr, "<unknown>", sizeof(addr) - 1);
 
-			if (iface_event_handler)
-				(*iface_event_handler)(type, ifa->ifa_family, ifa->ifa_index);
-
-			log_info("%s IPv%c address %s on interface %s\n",
-				 type == IFACE_ADD ? "Added" : "Deleted",
-				 ifa->ifa_family == AF_INET ? '4' : '6', addr,
-				 if_indextoname(ifa->ifa_index, ifname));
+		if (nlh->nlmsg_type == RTM_NEWADDR) {
+			iface_addr_add(index, family, RTA_DATA(rta));
+			type = IFACE_ADD;
+		} else if (nlh->nlmsg_type == RTM_DELADDR) {
+			iface_addr_del(index, family, RTA_DATA(rta));
+			type = IFACE_DEL;
+		} else {
+			/* This case shouldn't occur */
+			continue;
 		}
+
+		if (iface_event_handler)
+			(*iface_event_handler)(type, family, index);
+
+		log_info("%s IPv%c address %s on interface %s\n",
+			 type == IFACE_ADD ? "Added" : "Deleted",
+			 family == AF_INET ? '4' : '6', addr, ifname);
 	}
 }
 
