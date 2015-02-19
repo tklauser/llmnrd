@@ -252,6 +252,11 @@ int main(int argc, char **argv)
 			hdr = (struct llmnr_hdr *)pkt_put(p, sizeof(*hdr));
 			ancount = htons(hdr->ancount);
 
+			if (ancount == 0) {
+				log_info("LLMNR response: no answer records returned\n");
+				continue;
+			}
+
 			/* skip the original query */
 			pkt_put(p, query_pkt_len);
 
