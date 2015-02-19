@@ -26,7 +26,8 @@ enum iface_event_type {
 	IFACE_DEL,
 };
 
-typedef void (*iface_event_handler_t)(enum iface_event_type, int af, unsigned int ifindex);
+typedef void (*iface_event_handler_t)(enum iface_event_type, unsigned char af,
+				      unsigned int ifindex);
 
 void iface_register_event_handler(iface_event_handler_t event_handler);
 int iface_start_thread(void);

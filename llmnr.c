@@ -45,7 +45,8 @@ static bool llmnr_running = true;
  */
 static char llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 2];
 
-static void llmnr_iface_event_handle(enum iface_event_type type, int af, unsigned int ifindex)
+static void llmnr_iface_event_handle(enum iface_event_type type, unsigned char af,
+				     unsigned int ifindex)
 {
 	switch (af) {
 	case AF_INET:
