@@ -282,7 +282,7 @@ static int iface_rtnl_enumerate(int sock, int type, int family)
 	req.r.rtgen_family = family;
 
 	if (send(sock, &req, req.n.nlmsg_len, 0) < 0) {
-		log_err("Failed to send initial RTM_GETADDR request: %s\n", strerror(errno));
+		log_err("Failed to send netlink enumeration message: %s\n", strerror(errno));
 		return -1;
 	}
 
