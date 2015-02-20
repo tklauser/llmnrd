@@ -298,7 +298,7 @@ static int iface_nlmsg_process(const struct nlmsghdr *nlh, size_t len)
 	return 0;
 }
 
-static int iface_rtnl_enumerate(int sock, int type, int family)
+static int iface_rtnl_enumerate(int sock, uint16_t type, unsigned char family)
 {
 	struct {
 		struct nlmsghdr n;
