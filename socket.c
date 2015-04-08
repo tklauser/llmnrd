@@ -34,7 +34,6 @@
 #include "socket.h"
 
 static const int YES = 1;
-static const int NO = 0;
 
 int socket_open_ipv4(uint16_t port)
 {
