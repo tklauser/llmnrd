@@ -21,6 +21,7 @@
 
 #ifdef __GNUC__
 # define __noreturn		__attribute__((noreturn))
+# define __warn_unused_result	__attribute__((warn_unused_result))
 # define __packed		__attribute__((packed))
 # define __unused		__attribute__((unused))
 # ifndef offsetof

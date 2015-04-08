@@ -58,10 +58,10 @@ static inline void __noreturn panic(const char *fmt, ...)
 	exit(EXIT_FAILURE);
 }
 
-void *xmalloc(size_t size);
-void *xzalloc(size_t size);
-void *xrealloc(void *ptr, size_t size);
-char *xstrdup(const char *s);
+void *xmalloc(size_t size) __warn_unused_result;
+void *xzalloc(size_t size) __warn_unused_result;
+void *xrealloc(void *ptr, size_t size) __warn_unused_result;
+char *xstrdup(const char *s) __warn_unused_result;
 
 static inline bool xstreq(const char *str1, const char *str2)
 {
