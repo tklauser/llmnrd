@@ -36,11 +36,12 @@
 #include "log.h"
 #include "pkt.h"
 
-static const char *short_ops = "c:i:I:T:6hV";
+static const char *short_ops = "c:i:I:t:T:6hV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
 	{ "interval",	required_argument,	NULL, 'i' },
 	{ "interface", 	required_argument,	NULL, 'I' },
+	{ "timeout",	required_argument,	NULL, 't' },
 	{ "type",	required_argument,	NULL, 'T' },
 	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "help",	no_argument,		NULL, 'h' },
@@ -55,6 +56,7 @@ static void __noreturn usage_and_exit(int status)
 			"  -c, --count NUM       number of queries to send (default: 1)\n"
 			"  -i, --interval NUM    interval between queries in ms (default: 500)\n"
 			"  -I, --interface NAME  send multicast over specified interface\n"
+			"  -t, --timeout NUM     time to wait for reply in ms (default: 1000)\n"
 			"  -T, --type TYPE       set query type; must be one of A, AAAA, ANY (default: A)\n"
 			"  -6, --ipv6            send queries over IPv6\n"
 			"  -h, --help            show this help and exit\n"
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
 	int c, sock;
 	const char *query_name, *iface = NULL;
 	size_t query_name_len;
-	unsigned long i, count = 1, interval = 500;
+	unsigned long i, count = 1, interval = 500, timeout_msec = 1000;
 	uint16_t qtype = LLMNR_QTYPE_A;
 	bool ipv6 = false;
 	struct pkt *p;
@@ -105,6 +107,9 @@ int main(int argc, char **argv)
 			break;
 		case 'I':
 			iface = xstrdup(optarg);
+			break;
+		case 't':
+			timeout_msec = strtoul(optarg, NULL, 0);
 			break;
 		case 'T':
 			if (xstreq("A", optarg))
@@ -233,8 +238,8 @@ int main(int argc, char **argv)
 		FD_SET(sock, &rfds);
 
 		/* wait up to one second for a response */
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
+		tv.tv_sec = timeout_msec / 1000;
+		tv.tv_usec = (timeout_msec % 1000) * 1000;
 
 		ret = select(sock + 1, &rfds, NULL, NULL, &tv);
 		if (ret < 0) {
@@ -295,7 +300,7 @@ int main(int argc, char **argv)
 				log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
 			}
 		} else
-			log_info("No LLMNR response received within timeout\n");
+			log_info("No LLMNR response received within timeout (%lu msecs)\n", timeout_msec);
 
 		if (i < count - 1) {
 			pkt_reset(p);
