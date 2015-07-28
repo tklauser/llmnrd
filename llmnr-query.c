@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 	int c, sock;
 	const char *query_name, *iface = NULL;
 	size_t query_name_len;
-	unsigned long i, count = 1, interval = 500, timeout_msec = 1000;
+	unsigned long i, count = 1, interval_ms = 500, timeout_ms = 1000;
 	uint16_t qtype = LLMNR_QTYPE_A;
 	bool ipv6 = false;
 	struct pkt *p;
@@ -103,13 +103,13 @@ int main(int argc, char **argv)
 			count = strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
-			interval = strtoul(optarg, NULL, 0);
+			interval_ms = strtoul(optarg, NULL, 0);
 			break;
 		case 'I':
 			iface = xstrdup(optarg);
 			break;
 		case 't':
-			timeout_msec = strtoul(optarg, NULL, 0);
+			timeout_ms = strtoul(optarg, NULL, 0);
 			break;
 		case 'T':
 			if (xstreq("A", optarg))
@@ -238,8 +238,8 @@ int main(int argc, char **argv)
 		FD_SET(sock, &rfds);
 
 		/* wait up to one second for a response */
-		tv.tv_sec = timeout_msec / 1000;
-		tv.tv_usec = (timeout_msec % 1000) * 1000;
+		tv.tv_sec = timeout_ms / 1000;
+		tv.tv_usec = (timeout_ms % 1000) * 1000;
 
 		ret = select(sock + 1, &rfds, NULL, NULL, &tv);
 		if (ret < 0) {
@@ -300,11 +300,11 @@ int main(int argc, char **argv)
 				log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
 			}
 		} else
-			log_info("No LLMNR response received within timeout (%lu msecs)\n", timeout_msec);
+			log_info("No LLMNR response received within timeout (%lu ms)\n", timeout_ms);
 
 		if (i < count - 1) {
 			pkt_reset(p);
-			usleep(interval * 1000);
+			usleep(interval_ms * 1000);
 		}
 	}
 
