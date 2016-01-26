@@ -59,12 +59,12 @@ $(Q_P): $(Q_OBJS)
 install_$(D_P): $(D_P)
 	@echo "  INSTALL $(D_P)"
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(SBINDIR)
-	@$(INSTALL) -m 755 $(D_P) $(SBINDIR)/$(D_P)
+	@$(INSTALL) -m 755 $(D_P) $(DESTDIR)$(SBINDIR)/$(D_P)
 
 install_$(Q_P): $(Q_P)
 	@echo "  INSTALL $(Q_P)"
 	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)
-	@$(INSTALL) -m 755 $(Q_P) $(BINDIR)/$(Q_P)
+	@$(INSTALL) -m 755 $(Q_P) $(DESTDIR)$(BINDIR)/$(Q_P)
 
 install: install_$(D_P) install_$(Q_P)
 
