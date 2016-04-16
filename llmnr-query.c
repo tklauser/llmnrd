@@ -57,7 +57,7 @@ static void __noreturn usage_and_exit(int status)
 			"  -i, --interval NUM    interval between queries in ms (default: 500)\n"
 			"  -I, --interface NAME  send multicast over specified interface\n"
 			"  -t, --timeout NUM     time to wait for reply in ms (default: 1000)\n"
-			"  -T, --type TYPE       set query type; must be one of A, AAAA, ANY (default: A)\n"
+			"  -T, --type TYPE       set query type; must be one of A, AAAA, ANY (default: ANY)\n"
 			"  -6, --ipv6            send queries over IPv6\n"
 			"  -h, --help            show this help and exit\n"
 			"  -V, --version         show version information and exit\n");
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	const char *query_name, *iface = NULL;
 	size_t query_name_len;
 	unsigned long i, count = 1, interval_ms = 500, timeout_ms = 1000;
-	uint16_t qtype = LLMNR_QTYPE_A;
+	uint16_t qtype = LLMNR_QTYPE_ANY;
 	bool ipv6 = false;
 	struct pkt *p;
 	static const int TTL = 255;
