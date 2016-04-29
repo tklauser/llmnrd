@@ -355,9 +355,9 @@ int iface_run(void)
 
 	/* send RTM_GETADDR request to initially populate the interface list */
 	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET) < 0)
-		return -1;
+		goto out;
 	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
-		return -1;
+		goto out;
 
 	while (iface_running) {
 		ssize_t recvlen;
