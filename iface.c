@@ -145,10 +145,13 @@ static void iface_record_addr_del(struct iface_record *rec, struct sockaddr_stor
 			rec->size--;
 		} else {
 			char as[NI_MAXHOST];
+
 			if (getnameinfo((struct sockaddr *)addr, sizeof(*addr),
 					as, sizeof(as), NULL, 0, NI_NUMERICHOST))
 				strncpy(as, "<unknown>", sizeof(as) - 1);
 			log_err("Address %s to delete not found in records\n", as);
+
+			free(addrs);
 		}
 	} else if (rec->size == 1) {
 		free(rec->addrs);
