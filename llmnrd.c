@@ -128,6 +128,7 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;
 			}
 			port = num_arg;
+			break;
 		case '6':
 			ipv6 = true;
 			break;
