@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <netdb.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <string.h>
@@ -143,8 +144,10 @@ static void iface_record_addr_del(struct iface_record *rec, struct sockaddr_stor
 			rec->addrs = addrs;
 			rec->size--;
 		} else {
-			char as[INET6_ADDRSTRLEN];
-			inet_ntop(addr->ss_family, addr + sizeof(addr->ss_family), as, sizeof(as));
+			char as[NI_MAXHOST];
+			if (getnameinfo((struct sockaddr *)addr, sizeof(*addr),
+					as, sizeof(as), NULL, 0, NI_NUMERICHOST))
+				strncpy(as, "<unknown>", sizeof(as) - 1);
 			log_err("Address %s to delete not found in records\n", as);
 		}
 	} else if (rec->size == 1) {
