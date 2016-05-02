@@ -98,6 +98,7 @@ static void register_signal(int sig, void (*handler)(int))
 
 	saction.sa_handler = handler;
 	saction.sa_mask = block_mask;
+	saction.sa_flags = SA_RESTART;
 
 	if (sigaction(sig, &saction, NULL) != 0) {
 		log_err("Failed to register signal handler for %s (%d)\n",
@@ -128,6 +129,7 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;
 			}
 			port = num_arg;
+			break;
 		case '6':
 			ipv6 = true;
 			break;

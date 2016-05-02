@@ -1,6 +1,20 @@
+env:
+  global:
+   - secure: "i19+oa1wcShVfnMYNDF3kWxAbCER/ThHIiF/blHCuANtbd1SGpEZhMZJ+V4B6XnhRoAGUlrXxwdJ9TZWtG32wGepbMrEdyCxVMwoo8uNokkyWcAbV7z3KD8tjnOA7W/CDAAx6gy9BgX8T0cWK4zK5OwzWAFvz2rJ4UHhx/iX/sM="
+
 language: c
 compiler:
   - gcc
   - clang
 
 script: CC=$CC make CC=$CC
+
+addons:
+  coverity_scan:
+    project:
+      name: "tklauser/llmnrd"
+      description: "Build submitted via Travis CI"
+    notification_email: tklauser@distanz.ch
+    build_command_prepend: "make clean"
+    build_command: "make"
+    branch_pattern: coverity_scan

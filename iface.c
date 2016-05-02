@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <netdb.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <string.h>
@@ -143,9 +144,14 @@ static void iface_record_addr_del(struct iface_record *rec, struct sockaddr_stor
 			rec->addrs = addrs;
 			rec->size--;
 		} else {
-			char as[INET6_ADDRSTRLEN];
-			inet_ntop(addr->ss_family, addr + sizeof(addr->ss_family), as, sizeof(as));
+			char as[NI_MAXHOST];
+
+			if (getnameinfo((struct sockaddr *)addr, sizeof(*addr),
+					as, sizeof(as), NULL, 0, NI_NUMERICHOST))
+				strncpy(as, "<unknown>", sizeof(as) - 1);
 			log_err("Address %s to delete not found in records\n", as);
+
+			free(addrs);
 		}
 	} else if (rec->size == 1) {
 		free(rec->addrs);
@@ -349,9 +355,9 @@ int iface_run(void)
 
 	/* send RTM_GETADDR request to initially populate the interface list */
 	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET) < 0)
-		return -1;
+		goto out;
 	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
-		return -1;
+		goto out;
 
 	while (iface_running) {
 		ssize_t recvlen;
