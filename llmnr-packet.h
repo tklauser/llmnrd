@@ -1,7 +1,7 @@
 /*
- * LLMNR (RFC 4705) packet format definitions
+ * LLMNR (RFC 4795) packet format definitions
  *
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -51,7 +51,7 @@ struct llmnr_hdr {
 /* Maximum label length according to RFC 1035 */
 #define LLMNR_LABEL_MAX_SIZE	63
 
-/* TYPE values according to RFC1035, section 3.2.2 */
+/* TYPE values according to RFC 1035, section 3.2.2 */
 #define LLMNR_TYPE_A		1
 #define LLMNR_TYPE_NS		2
 #define LLMNR_TYPE_CNAME	5
@@ -63,7 +63,7 @@ struct llmnr_hdr {
 #define LLMNR_TYPE_TXT		16
 #define LLMNR_TYPE_AAAA		28	/* RFC 3596 */
 
-/* QTYPE values according to RFC1035, section 3.2.3 */
+/* QTYPE values according to RFC 1035, section 3.2.3 */
 #define LLMNR_QTYPE_A		LLMNR_TYPE_A
 #define LLMNR_QTYPE_AAAA	LLMNR_TYPE_AAAA
 #define LLMNR_QTYPE_ANY		255
