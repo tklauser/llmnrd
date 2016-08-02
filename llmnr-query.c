@@ -36,9 +36,10 @@
 #include "log.h"
 #include "pkt.h"
 
-static const char *short_ops = "c:i:I:t:T:6hV";
+static const char *short_ops = "c:d:i:I:t:T:6hV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
+	{ "id",		required_argument,	NULL, 'd' },
 	{ "interval",	required_argument,	NULL, 'i' },
 	{ "interface", 	required_argument,	NULL, 'I' },
 	{ "timeout",	required_argument,	NULL, 't' },
@@ -54,6 +55,7 @@ static void __noreturn usage_and_exit(int status)
 	fprintf(stdout, "Usage: llmnr-query [OPTIONS...] NAME\n"
 			"Options:\n"
 			"  -c, --count NUM       number of queries to send (default: 1)\n"
+			"  -d, --id NUM          set LLMNR transaction id (default: 0)\n"
 			"  -i, --interval NUM    interval between queries in ms (default: 500)\n"
 			"  -I, --interface NAME  send multicast over specified interface\n"
 			"  -t, --timeout NUM     time to wait for reply in ms (default: 1000)\n"
@@ -92,7 +94,7 @@ int main(int argc, char **argv)
 	int c, sock;
 	const char *query_name, *iface = NULL;
 	size_t query_name_len;
-	unsigned long i, count = 1, interval_ms = 500, timeout_ms = 1000;
+	unsigned long i, id = 0, count = 1, interval_ms = 500, timeout_ms = 1000;
 	uint16_t qtype = LLMNR_QTYPE_ANY;
 	bool ipv6 = false;
 	struct pkt *p;
@@ -102,6 +104,9 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 'c':
 			count = strtoul(optarg, NULL, 0);
+			break;
+		case 'd':
+			id = strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			interval_ms = strtoul(optarg, NULL, 0);
@@ -217,7 +222,7 @@ int main(int argc, char **argv)
 		int ret;
 
 		hdr = (struct llmnr_hdr *)pkt_put(p, sizeof(*hdr));
-		hdr->id = htons(i % UINT16_MAX);
+		hdr->id = htons(id + i % UINT16_MAX);
 		hdr->flags = 0;
 		hdr->qdcount = htons(1);
 		hdr->ancount = 0;
