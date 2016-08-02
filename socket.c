@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -34,6 +34,7 @@
 #include "socket.h"
 
 static const int YES = 1;
+static const int TTL = 255;
 
 int socket_open_ipv4(uint16_t port)
 {
@@ -49,6 +50,17 @@ int socket_open_ipv4(uint16_t port)
 	/* pass pktinfo struct on received packets */
 	if (setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &YES, sizeof(YES)) < 0) {
 		log_err("Failed to set IPv4 packet info socket option: %s\n", strerror(errno));
+		goto err;
+	}
+
+	/* RFC 4795, section 2.5 recommends to set TTL to 255 for UDP */
+	if (setsockopt(sock, IPPROTO_IP, IP_TTL, &TTL, sizeof(TTL)) < 0) {
+		log_err("Failed to set IPv4 unicast TTL socket option: %s\n", strerror(errno));
+		goto err;
+	}
+
+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &TTL, sizeof(TTL)) < 0) {
+		log_err("Failed to set IPv4 multicast TTL socket option: %s\n", strerror(errno));
 		goto err;
 	}
 
@@ -88,6 +100,17 @@ int socket_open_ipv6(uint16_t port)
 #endif
 	if (setsockopt(sock, IPPROTO_IPV6, opt_pktinfo, &YES, sizeof(YES)) < 0) {
 		log_err("Failed to set IPv6 packet info socket option: %s\n", strerror(errno));
+		goto err;
+	}
+
+	/* RFC 4795, section 2.5 recommends to set TTL to 255 for UDP */
+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &TTL, sizeof(TTL)) < 0) {
+		log_err("Failed to set IPv6 unicast hops socket option: %s\n", strerror(errno));
+		goto err;
+	}
+
+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &TTL, sizeof(TTL)) < 0) {
+		log_err("Failed to set IPv6 multicast hops socket option: %s\n", strerror(errno));
 		goto err;
 	}
 
