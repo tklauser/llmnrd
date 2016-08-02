@@ -1,7 +1,7 @@
 /*
  * Simple LLMNR query command.
  *
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -67,7 +67,7 @@ static void __noreturn usage_and_exit(int status)
 static void __noreturn version_and_exit(void)
 {
 	fprintf(stdout, "llmnr-query %s %s\n"
-			"Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>\n"
+			"Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>\n"
 			"Licensed under the GNU General Public License, version 2\n",
 			VERSION_STRING, GIT_VERSION);
 	exit(EXIT_SUCCESS);
@@ -96,6 +96,7 @@ int main(int argc, char **argv)
 	uint16_t qtype = LLMNR_QTYPE_A;
 	bool ipv6 = false;
 	struct pkt *p;
+	static const int TTL = 255;
 
 	while ((c = getopt_long(argc, argv, short_ops, long_opts, NULL)) != -1) {
 		switch (c) {
@@ -149,6 +150,30 @@ int main(int argc, char **argv)
 	if (sock < 0) {
 		log_err("Failed to open UDP socket: %s\n", strerror(errno));
 		return -1;
+	}
+
+	if (ipv6) {
+		/* RFC 4795, section 2.5 recommends to set TTL to 255 for UDP */
+		if (setsockopt(sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &TTL, sizeof(TTL)) < 0) {
+			log_err("Failed to set IPv6 unicast hops socket option: %s\n", strerror(errno));
+			goto err;
+		}
+
+		if (setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &TTL, sizeof(TTL)) < 0) {
+			log_err("Failed to set IPv6 multicast hops socket option: %s\n", strerror(errno));
+			goto err;
+		}
+	} else {
+		/* RFC 4795, section 2.5 recommends to set TTL to 255 for UDP */
+		if (setsockopt(sock, IPPROTO_IP, IP_TTL, &TTL, sizeof(TTL)) < 0) {
+			log_err("Failed to set IPv4 unicast TTL socket option: %s\n", strerror(errno));
+			goto err;
+		}
+
+		if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &TTL, sizeof(TTL)) < 0) {
+			log_err("Failed to set IPv4 multicast TTL socket option: %s\n", strerror(errno));
+			goto err;
+		}
 	}
 
 	if (iface != NULL) {
