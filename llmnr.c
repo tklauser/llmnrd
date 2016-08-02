@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -305,7 +305,7 @@ int llmnr_run(void)
 			nfds = llmnr_sock_ipv4 + 1;
 
 		tv.tv_sec = 0;
-		tv.tv_usec = 200;
+		tv.tv_usec = 50000;
 
 		ret = select(nfds, &rfds, NULL, NULL, &tv);
 		if (ret < 0) {
