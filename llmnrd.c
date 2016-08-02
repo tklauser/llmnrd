@@ -29,6 +29,7 @@
 #include <unistd.h>
 
 #include <sys/ioctl.h>
+#include <sys/param.h>
 
 #include "compiler.h"
 #include "log.h"
@@ -148,12 +149,12 @@ int main(int argc, char **argv)
 	register_signal(SIGHUP, signal_handler);
 
 	if (!hostname) {
-		/* TODO: Consider hostname changing at runtime */
-		hostname = xmalloc(255);
-		if (gethostname(hostname, 255) != 0) {
+		hostname = xzalloc(MAXHOSTNAMELEN);
+		if (gethostname(hostname, MAXHOSTNAMELEN) != 0) {
 			log_err("Failed to get hostname");
 			return EXIT_FAILURE;
 		}
+		hostname[MAXHOSTNAMELEN - 1] = '\0';
 	}
 
 	if (daemonize) {
