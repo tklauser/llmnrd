@@ -1,8 +1,8 @@
 # Makefile for llmnrd
 #
-# Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
+# Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
 
-VERSION = 0.1-rc1
+VERSION = 0.1
 
 # llmnrd binary
 D_P 	= llmnrd
