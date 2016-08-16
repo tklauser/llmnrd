@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -24,7 +24,7 @@
 
 int socket_open_ipv4(uint16_t port);
 int socket_open_ipv6(uint16_t port);
-int socket_open_rtnl(void);
+int socket_open_rtnl(bool ipv6);
 
 int socket_mcast_group_ipv4(int sock, unsigned int ifindex, bool join);
 int socket_mcast_group_ipv6(int sock, unsigned int ifindex, bool join);

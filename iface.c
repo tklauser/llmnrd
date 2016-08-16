@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -41,6 +41,7 @@
 #include "iface.h"
 
 static bool iface_running = true;
+static bool iface_ipv6 = false;
 static pthread_t iface_thread;
 static iface_event_handler_t iface_event_handler;
 
@@ -349,15 +350,17 @@ int iface_run(void)
 		return -1;
 	}
 
-	sock = socket_open_rtnl();
+	sock = socket_open_rtnl(iface_ipv6);
 	if (sock < 0)
 		return -1;
 
 	/* send RTM_GETADDR request to initially populate the interface list */
 	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET) < 0)
 		goto out;
-	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
-		goto out;
+	if (iface_ipv6) {
+		if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
+			goto out;
+	}
 
 	while (iface_running) {
 		ssize_t recvlen;
@@ -385,8 +388,10 @@ static void* iface_run_wrapper(void *data __unused)
 	return ERR_PTR(iface_run());
 }
 
-int iface_start_thread(void)
+int iface_start_thread(bool ipv6)
 {
+	iface_ipv6 = ipv6;
+
 	if (pthread_create(&iface_thread, NULL, iface_run_wrapper, NULL) < 0) {
 		log_err("Failed to start interface monitoring thread\n");
 		return -1;

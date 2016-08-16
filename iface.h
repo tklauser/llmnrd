@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -19,6 +19,7 @@
 #ifndef IFACE_H
 #define IFACE_H
 
+#include <stdbool.h>
 #include <sys/socket.h>
 
 enum iface_event_type {
@@ -30,7 +31,7 @@ typedef void (*iface_event_handler_t)(enum iface_event_type, unsigned char af,
 				      unsigned int ifindex);
 
 void iface_register_event_handler(iface_event_handler_t event_handler);
-int iface_start_thread(void);
+int iface_start_thread(bool ipv6);
 void iface_stop(void);
 
 size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,

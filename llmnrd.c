@@ -167,7 +167,7 @@ int main(int argc, char **argv)
 	if (llmnr_init(hostname, port, ipv6) < 0)
 		goto out;
 
-	if (iface_start_thread() < 0)
+	if (iface_start_thread(ipv6) < 0)
 		goto out;
 
 	ret = llmnr_run();

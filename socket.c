@@ -136,7 +136,7 @@ err:
 	return -1;
 }
 
-int socket_open_rtnl(void)
+int socket_open_rtnl(bool ipv6)
 {
 	int sock;
 	struct sockaddr_nl sa;
@@ -153,9 +153,11 @@ int socket_open_rtnl(void)
 	 * listen for following events:
 	 * - network interface create/delete/up/down
 	 * - IPv4 address add/delete
-	 * - IPv6 address add/delete
+	 * - IPv6 address add/delete (if enabled)
 	 */
-	sa.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR;
+	sa.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR;
+	if (ipv6)
+		sa.nl_groups |= RTMGRP_IPV6_IFADDR;
 
 	if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
 		log_err("Failed to bind() netlink socket: %s\n", strerror(errno));
