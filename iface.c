@@ -42,6 +42,7 @@
 
 static bool iface_running = true;
 static bool iface_ipv6 = false;
+static unsigned int iface_ifindex = 0;
 static pthread_t iface_thread;
 static iface_event_handler_t iface_event_handler;
 
@@ -234,6 +235,13 @@ static void iface_nlmsg_change_addr(const struct nlmsghdr *nlh)
 	if ((ifa->ifa_flags & (IFA_F_TEMPORARY | IFA_F_TENTATIVE)) != 0)
 		return;
 
+	/*
+	 * If bound to a specific interface, don't report addresses of any other
+	 * interface.
+	 */
+	if (iface_ifindex > 0 && index != iface_ifindex)
+		return;
+
 	if_indextoname(index, ifname);
 
 	rta = (struct rtattr *)((const uint8_t *)nlh + NLMSG_SPACE(sizeof(*ifa)));
@@ -388,9 +396,11 @@ static void* iface_run_wrapper(void *data __unused)
 	return ERR_PTR(iface_run());
 }
 
-int iface_start_thread(bool ipv6)
+int iface_start_thread(bool ipv6, const char *iface)
 {
 	iface_ipv6 = ipv6;
+	if (iface)
+		iface_ifindex = if_nametoindex(iface);
 
 	if (pthread_create(&iface_thread, NULL, iface_run_wrapper, NULL) < 0) {
 		log_err("Failed to start interface monitoring thread\n");

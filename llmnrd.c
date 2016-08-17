@@ -39,9 +39,10 @@
 #include "llmnr.h"
 #include "llmnr-packet.h"
 
-static const char *short_opts = "H:p:6dhV";
+static const char *short_opts = "H:i:p:6dhV";
 static const struct option long_opts[] = {
 	{ "hostname",	required_argument,	NULL, 'H' },
+	{ "interface",  required_argument,	NULL, 'i' },
 	{ "port",	required_argument,	NULL, 'p' },
 	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "daemonize",	no_argument,		NULL, 'd' },
@@ -55,6 +56,7 @@ static void __noreturn usage_and_exit(int status)
 	fprintf(stdout, "Usage: llmnrd [OPTIONS]\n"
 			"Options:\n"
 			"  -H, --hostname NAME  set hostname to respond with (default: system hostname)\n"
+			"  -i, --interface DEV  bind socket to a specific interface, e.g. eth0\n"
 			"  -p, --port NUM       set port number to listen on (default: %d)\n"
 			"  -6, --ipv6           enable LLMNR name resolution over IPv6\n"
 			"  -d, --daemonize      run as daemon in the background\n"
@@ -113,6 +115,7 @@ int main(int argc, char **argv)
 	long num_arg;
 	bool daemonize = false, ipv6 = false;
 	char *hostname = NULL;
+	char *iface = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 
 	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
@@ -122,6 +125,9 @@ int main(int argc, char **argv)
 			break;
 		case 'H':
 			hostname = xstrdup(optarg);
+			break;
+		case 'i':
+			iface = xstrdup(optarg);
 			break;
 		case 'p':
 			num_arg = strtol(optarg, NULL, 0);
@@ -164,10 +170,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (llmnr_init(hostname, port, ipv6) < 0)
+	if (llmnr_init(hostname, port, ipv6, iface) < 0)
 		goto out;
 
-	if (iface_start_thread(ipv6) < 0)
+	if (iface_start_thread(ipv6, iface) < 0)
 		goto out;
 
 	ret = llmnr_run();

@@ -36,7 +36,24 @@
 static const int YES = 1;
 static const int TTL = 255;
 
-int socket_open_ipv4(uint16_t port)
+static int socket_bind_to_device(int sock, const char *iface) {
+#ifdef SO_BINDTODEVICE
+	/* bind socket to specific interface */
+	if (iface) {
+		struct ifreq ifr;
+
+		memset(&ifr, 0, sizeof(ifr));
+		strncpy(ifr.ifr_name, iface, sizeof(ifr.ifr_name) - 1);
+		if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
+			log_err("Failed to bind socket to device %s: %s\n", iface, strerror(errno));
+			return -1;
+		}
+	}
+#endif
+	return 0;
+}
+
+int socket_open_ipv4(uint16_t port, const char *iface)
 {
 	int sock;
 	struct sockaddr_in sa;
@@ -64,6 +81,9 @@ int socket_open_ipv4(uint16_t port)
 		goto err;
 	}
 
+	if (socket_bind_to_device(sock, iface) < 0)
+		goto err;
+
 	/* bind the socket */
 	memset(&sa, 0, sizeof(sa));
 	sa.sin_family = AF_INET;
@@ -81,7 +101,7 @@ err:
 	return -1;
 }
 
-int socket_open_ipv6(uint16_t port)
+int socket_open_ipv6(uint16_t port, const char *iface)
 {
 	int sock, opt_pktinfo;
 	struct sockaddr_in6 sa;
@@ -119,6 +139,9 @@ int socket_open_ipv6(uint16_t port)
 		log_err("Failed to set IPv6 only socket option: %s\n", strerror(errno));
 		goto err;
 	}
+
+	if (socket_bind_to_device(sock, iface) < 0)
+		goto err;
 
 	/* bind the socket */
 	memset(&sa, 0, sizeof(sa));

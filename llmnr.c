@@ -61,19 +61,21 @@ static void llmnr_iface_event_handle(enum iface_event_type type, unsigned char a
 	}
 }
 
-int llmnr_init(const char *hostname, uint16_t port, bool ipv6)
+int llmnr_init(const char *hostname, uint16_t port, bool ipv6, const char *iface)
 {
 	llmnr_hostname[0] = strlen(hostname);
 	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
 	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
 	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
+	if (iface)
+		log_info("Binding to interface %s\n", iface);
 
-	llmnr_sock_ipv4 = socket_open_ipv4(port);
+	llmnr_sock_ipv4 = socket_open_ipv4(port, iface);
 	if (llmnr_sock_ipv4 < 0)
 		return -1;
 
 	if (ipv6) {
-		llmnr_sock_ipv6 = socket_open_ipv6(port);
+		llmnr_sock_ipv6 = socket_open_ipv6(port, iface);
 		if (llmnr_sock_ipv6 < 0)
 			return -1;
 	}

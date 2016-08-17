@@ -22,8 +22,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-int socket_open_ipv4(uint16_t port);
-int socket_open_ipv6(uint16_t port);
+int socket_open_ipv4(uint16_t port, const char *iface);
+int socket_open_ipv6(uint16_t port, const char *iface);
 int socket_open_rtnl(bool ipv6);
 
 int socket_mcast_group_ipv4(int sock, unsigned int ifindex, bool join);

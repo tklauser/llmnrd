@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -22,7 +22,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-int llmnr_init(const char *hostname, uint16_t port, bool ipv6);
+int llmnr_init(const char *hostname, uint16_t port, bool ipv6, const char *iface);
 int llmnr_run(void);
 void llmnr_stop(void);
 
