@@ -127,8 +127,12 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	qtype = ntohs(*((uint16_t *)query_name_end));
 	qclass = ntohs(*((uint16_t *)query_name_end + 1));
 
-	/* Ony IN queries supported */
+	/* Only IN queries supported */
 	if (qclass != LLMNR_QCLASS_IN)
+		return;
+
+	/* No AAAA responses if IPv6 is disabled */
+	if (llmnr_sock_ipv6 < 0 && qtype == LLMNR_QTYPE_AAAA)
 		return;
 
 	switch (qtype) {
@@ -146,6 +150,9 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	}
 
 	n = iface_addr_lookup(ifindex, family, addrs, ARRAY_SIZE(addrs));
+	/* Don't respond if no address was found for the given interface */
+	if (n == 0)
+		return;
 
 	/*
 	 * This is the max response length (i.e. using all IPv6 addresses and
