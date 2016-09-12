@@ -100,8 +100,8 @@ static inline uint8_t *pkt_put(struct pkt *p, size_t len)
 #define DEFINE_PKT_PUT(__bitwidth)							\
 static inline void pkt_put_u##__bitwidth(struct pkt *p, uint##__bitwidth##_t val)	\
 {											\
-	uint##__bitwidth##_t *data = (uint##__bitwidth##_t *)pkt_put(p, sizeof(val));	\
-	*data = val;									\
+	uint8_t *data = pkt_put(p, sizeof(val));	\
+	memcpy(data, &val, sizeof(uint##__bitwidth##_t));	\
 }
 
 DEFINE_PKT_PUT(8)
