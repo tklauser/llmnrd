@@ -47,10 +47,20 @@ llmnrd is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
-Author
-------
+Authors
+-------
 
 llmnrd is authored and maintained by Tobias Klauser <tklauser@distanz.ch>
+
+The following people contributed patches and ideas, found and reported bugs or
+otherwise helped in the development of llmnrd:
+
+* Martin Hauke
+* Michael Evertz (@dvl-mevertz)
+* Schimmelreiter (@Schimmelreiter)
+* SviMik (@svimik)
+
+Thanks a lot!
 
 References
 ----------
