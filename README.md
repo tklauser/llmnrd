@@ -69,6 +69,7 @@ llmnrd is authored and maintained by Tobias Klauser <tklauser@distanz.ch>
 The following people contributed patches and ideas, found and reported bugs or
 otherwise helped in the development of llmnrd:
 
+* Elazar Leibovich (@elazarl)
 * Martin Hauke
 * Michael Evertz (@dvl-mevertz)
 * Schimmelreiter (@Schimmelreiter)
