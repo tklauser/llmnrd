@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
 
-VERSION = 0.1
+VERSION = 0.2
 
 # llmnrd binary
 D_P 	= llmnrd
