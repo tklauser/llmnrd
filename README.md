@@ -32,8 +32,8 @@ $ sudo make prefix=<path> install
 Cross-Compilation
 =================
 
-To cross-compile llmnrd for a different architecture, use the CROSS_COMPILE make
-variable. To e.g. build it using the arm-linux-gnueabihf toolchain use:
+To cross-compile llmnrd for a different architecture, use the `CROSS_COMPILE`
+make variable. To e.g. build it using the arm-linux-gnueabihf toolchain use:
 
 ```
 $ make CROSS_COMPILE=arm-linux-gnueabihf-
@@ -41,11 +41,38 @@ $ make CROSS_COMPILE=arm-linux-gnueabihf-
 
 When cross-compiling, you usually don't want to install the generated binary to
 your root filesystem, but to the sysroot of a cross-compiled system. Use the
-DESTDIR variable to change the installation destination path, e.g.
+`DESTDIR` variable to change the installation destination path, e.g.
 
 ```
 $ make DESTDIR=$HOME/sysroot/ prefix=/usr install
 ```
+
+Usage
+=====
+
+To run llmnrd in the default mode (listening on UDP port 5355):
+
+```
+$ llmnrd
+```
+
+By default, LLMNR name resolution is only possible over IPv4. To additionally
+enable LLMNR name resolution over IPv6 use:
+
+```
+$ llmnrd -6
+```
+
+Use `llmnrd --help` to show additional usage information.
+
+Additionally, the `llmnr-query` utility is shipped together with llmnrd and
+can be used to send customized LLMNR queries:
+
+```
+$ llmnr-query <hostname>
+```
+
+Use `llmnr-query --help` to show additional usage information.
 
 License
 =======
