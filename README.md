@@ -61,8 +61,8 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 Please see the [COPYING](https://github.com/tklauser/llmnrd/blob/master/COPYING)
 file for the full license text.
 
-Authors
-=======
+Contributors
+============
 
 llmnrd is authored and maintained by Tobias Klauser <tklauser@distanz.ch>
 
@@ -72,6 +72,7 @@ otherwise helped in the development of llmnrd:
 * Elazar Leibovich (@elazarl)
 * Martin Hauke
 * Michael Evertz (@dvl-mevertz)
+* Pali Rohár
 * Schimmelreiter (@Schimmelreiter)
 * SviMik (@svimik)
 
