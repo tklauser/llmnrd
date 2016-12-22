@@ -72,3 +72,18 @@ clean:
 	@echo "  CLEAN"
 	@rm -f $(D_OBJS) $(D_P)
 	@rm -f $(Q_OBJS) $(Q_P)
+
+# Maintainer targets
+
+GIT_TAG = git tag -a v$(VERSION) -s -m "llmnrd $(VERSION) release"
+GIT_ARCHIVE = git archive --prefix=llmnrd-$(VERSION)/ v$(VERSION) | \
+	      $(1) -9 > ../llmnrd-$(VERSION).tar.$(2)
+GPG_SIGN = gpg -a --output ../llmnrd-$(VERSION).tar.$(1).asc --detach-sig \
+		../llmnrd-$(VERSION).tar.$(1)
+release:
+	$(GIT_TAG)
+	$(call GIT_ARCHIVE,gzip,gz)
+	$(call GIT_ARCHIVE,bzip2,bz2)
+	$(call GPG_SIGN,gz)
+	$(call GPG_SIGN,bz2)
+	$(Q)echo "Created release $(VERSION)"
