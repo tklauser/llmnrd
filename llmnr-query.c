@@ -18,6 +18,8 @@
  * along with llmnrd.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define _GNU_SOURCE
+#define __APPLE_USE_RFC_3542
 #include <errno.h>
 #include <getopt.h>
 #include <stdint.h>
@@ -26,6 +28,7 @@
 
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -98,6 +101,7 @@ int main(int argc, char **argv)
 	uint16_t qtype = LLMNR_QTYPE_ANY;
 	bool ipv6 = false;
 	struct pkt *p;
+	unsigned int ifindex = 0;
 	static const int TTL = 255;
 
 	while ((c = getopt_long(argc, argv, short_ops, long_opts, NULL)) != -1) {
@@ -182,7 +186,7 @@ int main(int argc, char **argv)
 	}
 
 	if (iface != NULL) {
-		unsigned int ifindex = if_nametoindex(iface);
+		ifindex = if_nametoindex(iface);
 
 		if (ifindex == 0 && errno != 0) {
 			log_err("Could not get interface %s: %s\n", iface, strerror(errno));
@@ -216,6 +220,11 @@ int main(int argc, char **argv)
 	for (i = 0; i < count; i++) {
 		struct llmnr_hdr *hdr;
 		struct sockaddr_storage sst;
+		socklen_t sst_len;
+		struct iovec iov[1];
+		struct msghdr msg;
+		struct in6_pktinfo ipi6;
+		uint8_t c[CMSG_SPACE(sizeof(ipi6))];
 		size_t query_pkt_len;
 		fd_set rfds;
 		struct timeval tv;
@@ -237,8 +246,13 @@ int main(int argc, char **argv)
 		pkt_put_u16(p, htons(LLMNR_QCLASS_IN));
 
 		memset(&sst, 0, sizeof(sst));
+		memset(&iov, 0, sizeof(iov));
+		memset(&msg, 0, sizeof(msg));
+		memset(&ipi6, 0, sizeof(ipi6));
+
 		if (ipv6) {
 			struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&sst;
+			struct cmsghdr *cmsg;
 
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_port = htons(LLMNR_UDP_PORT);
@@ -246,6 +260,16 @@ int main(int argc, char **argv)
 				log_err("Failed to convert IPv6 address: %s\n", strerror(errno));
 				break;
 			}
+			sst_len = sizeof(*sin6);
+
+			ipi6.ipi6_ifindex = ifindex;
+			msg.msg_control = c;
+			msg.msg_controllen = sizeof(c);
+			cmsg = CMSG_FIRSTHDR(&msg);
+			cmsg->cmsg_level = IPPROTO_IPV6;
+			cmsg->cmsg_type = IPV6_PKTINFO;
+			cmsg->cmsg_len = CMSG_LEN(sizeof(ipi6));
+			memcpy(CMSG_DATA(cmsg), &ipi6, sizeof(ipi6));
 		} else {
 			struct sockaddr_in *sin = (struct sockaddr_in *)&sst;
 
@@ -255,9 +279,17 @@ int main(int argc, char **argv)
 				log_err("Failed to convert IPv4 address: %s\n", strerror(errno));
 				break;
 			}
+			sst_len = sizeof(*sin);
 		}
 
-		if (sendto(sock, p->data, pkt_len(p), 0, (struct sockaddr *)&sst, sizeof(sst)) < 0) {
+		iov[0].iov_base = p->data;
+		iov[0].iov_len = pkt_len(p);
+		msg.msg_iov = iov;
+		msg.msg_iovlen = 1;
+		msg.msg_name = &sst;
+		msg.msg_namelen = sst_len;
+
+		if (sendmsg(sock, &msg, 0) < 0) {
 			log_err("Failed to send UDP packet: %s\n", strerror(errno));
 			break;
 		}
