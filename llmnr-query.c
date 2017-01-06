@@ -1,7 +1,7 @@
 /*
- * Simple LLMNR query command.
+ * Simple LLMNR (RFC 4795) query tool.
  *
- * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -69,7 +69,7 @@ static void __noreturn usage_and_exit(int status)
 static void __noreturn version_and_exit(void)
 {
 	fprintf(stdout, "llmnr-query %s %s\n"
-			"Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>\n"
+			"Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>\n"
 			"Licensed under the GNU General Public License, version 2\n",
 			VERSION_STRING, GIT_VERSION);
 	exit(EXIT_SUCCESS);
