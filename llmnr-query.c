@@ -257,8 +257,6 @@ int main(int argc, char **argv)
 			}
 		}
 
-		query_pkt_len = pkt_len(p) - sizeof(*hdr);
-
 		if (sendto(sock, p->data, pkt_len(p), 0, (struct sockaddr *)&sst, sizeof(sst)) < 0) {
 			log_err("Failed to send UDP packet: %s\n", strerror(errno));
 			break;
@@ -278,7 +276,10 @@ int main(int argc, char **argv)
 		} else if (ret) {
 			uint16_t j, ancount;
 
+			/* save query length and re-use packet for RX */
+			query_pkt_len = pkt_len(p) - sizeof(*hdr);
 			pkt_reset(p);
+
 			if (recv(sock, p->data, p->size, 0) < 0) {
 				log_err("Failed to receive from socket: %s\n", strerror(errno));
 				break;
