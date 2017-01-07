@@ -1,6 +1,6 @@
 # Makefile for llmnrd
 #
-# Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
+# Copyright (C) 2014-2017 Tobias Klauser <tklauser@distanz.ch>
 
 VERSION = 0.2.1
 
@@ -17,7 +17,8 @@ Q_LIBS	=
 CC	= $(CROSS_COMPILE)gcc
 INSTALL	= install
 
-CFLAGS	?= -W -Wall -O2
+CPPFLAGS ?=
+CFLAGS	?= -W -Wall -O2 $(CPPFLAGS)
 LDFLAGS	?=
 
 ifeq ($(shell git rev-parse > /dev/null 2>&1; echo $$?), 0)
