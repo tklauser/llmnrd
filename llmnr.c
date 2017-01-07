@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2014-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -304,7 +304,6 @@ int llmnr_run(void)
 
 	while (llmnr_running) {
 		fd_set rfds;
-		struct timeval tv;
 		int nfds, ret;
 
 		FD_ZERO(&rfds);
@@ -315,10 +314,7 @@ int llmnr_run(void)
 		} else
 			nfds = llmnr_sock_ipv4 + 1;
 
-		tv.tv_sec = 0;
-		tv.tv_usec = 50000;
-
-		ret = select(nfds, &rfds, NULL, NULL, &tv);
+		ret = select(nfds, &rfds, NULL, NULL, NULL);
 		if (ret < 0) {
 			if (errno != EINTR)
 				log_err("Failed to select() on socket: %s\n", strerror(errno));
