@@ -18,7 +18,6 @@ CC	= $(CROSS_COMPILE)gcc
 INSTALL	= install
 
 CPPFLAGS ?=
-CFLAGS	?= -W -Wall -O2 $(CPPFLAGS)
 LDFLAGS	?=
 
 ifeq ($(shell git rev-parse > /dev/null 2>&1; echo $$?), 0)
@@ -27,11 +26,13 @@ else
   GIT_VERSION =
 endif
 
-CFLAGS	+= -DVERSION_STRING=\"v$(VERSION)\" -DGIT_VERSION=\"$(GIT_VERSION)\"
-
+CFLAGS_MIN := -W -Wall -DVERSION_STRING=\"v$(VERSION)\" -DGIT_VERSION=\"$(GIT_VERSION)\"
 ifeq ($(DEBUG), 1)
-  CFLAGS += -g -DDEBUG
+  CFLAGS_MIN += -g -DDEBUG
 endif
+
+CFLAGS ?= -O2
+override CFLAGS := $(CFLAGS_MIN) $(CFLAGS)
 
 Q	?= @
 ifeq ($(Q),)
@@ -57,10 +58,10 @@ $(Q_P): $(Q_OBJS)
 	$(LDQ) $(LDFLAGS) -o $@ $(Q_OBJS) $(Q_LIBS)
 
 %.o: %.c %.h
-	$(CCQ) $(CFLAGS) -o $@ -c $<
+	$(CCQ) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 %.o: %.c
-	$(CCQ) $(CFLAGS) -o $@ -c $<
+	$(CCQ) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 install_$(D_P): $(D_P)
 	@echo "  INSTALL $(D_P)"
