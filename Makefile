@@ -34,8 +34,13 @@ ifeq ($(DEBUG), 1)
 endif
 
 Q	?= @
-CCQ	= $(Q)echo "  CC $<" && $(CC)
-LDQ	= $(Q)echo "  LD $@" && $(CC)
+ifeq ($(Q),)
+  CCQ	= $(CC)
+  LDQ	= $(CC)
+else
+  CCQ	= $(Q)echo "  CC $<" && $(CC)
+  LDQ	= $(Q)echo "  LD $@" && $(CC)
+endif
 
 prefix	?= /usr/local
 
@@ -59,20 +64,20 @@ $(Q_P): $(Q_OBJS)
 
 install_$(D_P): $(D_P)
 	@echo "  INSTALL $(D_P)"
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(SBINDIR)
-	@$(INSTALL) -m 755 $(D_P) $(DESTDIR)$(SBINDIR)/$(D_P)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(SBINDIR)
+	$(Q)$(INSTALL) -m 755 $(D_P) $(DESTDIR)$(SBINDIR)/$(D_P)
 
 install_$(Q_P): $(Q_P)
 	@echo "  INSTALL $(Q_P)"
-	@$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)
-	@$(INSTALL) -m 755 $(Q_P) $(DESTDIR)$(BINDIR)/$(Q_P)
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)
+	$(Q)$(INSTALL) -m 755 $(Q_P) $(DESTDIR)$(BINDIR)/$(Q_P)
 
 install: install_$(D_P) install_$(Q_P)
 
 clean:
 	@echo "  CLEAN"
-	@rm -f $(D_OBJS) $(D_P)
-	@rm -f $(Q_OBJS) $(Q_P)
+	$(Q)rm -f $(D_OBJS) $(D_P)
+	$(Q)rm -f $(Q_OBJS) $(Q_P)
 
 # Maintainer targets
 
