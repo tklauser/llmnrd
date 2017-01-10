@@ -99,7 +99,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		return;
 
 	/* No AAAA responses if IPv6 is disabled */
-	if (llmnr_ipv6 < 0 && qtype == LLMNR_QTYPE_AAAA)
+	if (!llmnr_ipv6 && qtype == LLMNR_QTYPE_AAAA)
 		return;
 
 	switch (qtype) {
