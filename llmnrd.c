@@ -1,7 +1,7 @@
 /*
  * llmnrd -- LLMNR (RFC 4705) responder daemon.
  *
- * Copyright (C) 2014-2016 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2014-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -38,6 +38,11 @@
 #include "iface.h"
 #include "llmnr.h"
 #include "llmnr-packet.h"
+#include "socket.h"
+
+static bool llmnrd_running = true;
+static int llmnrd_sock_ipv4 = -1;
+static int llmnrd_sock_ipv6 = -1;
 
 static const char *short_opts = "H:i:p:6dhV";
 static const struct option long_opts[] = {
@@ -82,8 +87,7 @@ static void signal_handler(int sig)
 	case SIGQUIT:
 	case SIGTERM:
 		log_info("Interrupt received. Stopping llmnrd.\n");
-		iface_stop();
-		llmnr_stop();
+		llmnrd_running = false;
 		break;
 	case SIGHUP:
 	default:
@@ -109,14 +113,32 @@ static void register_signal(int sig, void (*handler)(int))
 	}
 }
 
+static void iface_event_handle(enum iface_event_type type, unsigned char af,
+			       unsigned int ifindex)
+{
+	switch (af) {
+	case AF_INET:
+		socket_mcast_group_ipv4(llmnrd_sock_ipv4, ifindex, type == IFACE_ADD);
+		break;
+	case AF_INET6:
+		socket_mcast_group_ipv6(llmnrd_sock_ipv6, ifindex, type == IFACE_ADD);
+		break;
+	default:
+		/* ignore */
+		break;
+	}
+}
+
 int main(int argc, char **argv)
 {
-	int c, ret = EXIT_FAILURE;
+	int c, ret = -1;
 	long num_arg;
 	bool daemonize = false, ipv6 = false;
 	char *hostname = NULL;
 	char *iface = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
+	int llmnrd_sock_rtnl = -1;
+	int nfds;
 
 	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
 		switch (c) {
@@ -166,18 +188,71 @@ int main(int argc, char **argv)
 	if (daemonize) {
 		if (daemon(0, 0) != 0) {
 			log_err("Failed to daemonize process: %s\n", strerror(errno));
-			return EXIT_FAILURE;
+			goto out;
 		}
 	}
 
-	if (llmnr_init(hostname, port, ipv6, iface) < 0)
+	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
+	if (iface)
+		log_info("Binding to interface %s\n", iface);
+
+	llmnrd_sock_ipv4 = socket_open_ipv4(port, iface);
+	if (llmnrd_sock_ipv4 < 0)
 		goto out;
 
-	if (iface_start_thread(ipv6, iface) < 0)
+	if (ipv6) {
+		llmnrd_sock_ipv6 = socket_open_ipv6(port, iface);
+		if (llmnrd_sock_ipv6 < 0)
+			goto out;
+	}
+
+	llmnrd_sock_rtnl = socket_open_rtnl(ipv6);
+	if (llmnrd_sock_rtnl < 0)
 		goto out;
 
-	ret = llmnr_run();
+	llmnr_init(hostname, ipv6);
+	iface_init(llmnrd_sock_rtnl, iface, ipv6, &iface_event_handle);
+
+	nfds = max(llmnrd_sock_ipv4, llmnrd_sock_rtnl);
+	if (llmnrd_sock_ipv6 >= 0)
+		nfds = max(nfds, llmnrd_sock_ipv6);
+	nfds += 1;
+
+	while (llmnrd_running) {
+		fd_set rfds;
+
+		FD_ZERO(&rfds);
+		FD_SET(llmnrd_sock_ipv4, &rfds);
+		FD_SET(llmnrd_sock_rtnl, &rfds);
+		if (llmnrd_sock_ipv6 >= 0)
+			FD_SET(llmnrd_sock_ipv6, &rfds);
+
+		ret = select(nfds, &rfds, NULL, NULL, NULL);
+		if (ret < 0) {
+			if (errno != EINTR)
+				log_err("Failed to select() on socket: %s\n", strerror(errno));
+			goto out;
+		} else if (ret) {
+			/* handle RTNL messages first so we can respond with
+			 * up-to-date information.
+			 */
+			if (FD_ISSET(llmnrd_sock_rtnl, &rfds))
+				iface_recv(llmnrd_sock_rtnl);
+			if (FD_ISSET(llmnrd_sock_ipv4, &rfds))
+				llmnr_recv(llmnrd_sock_ipv4);
+			if (llmnrd_sock_ipv6 >= 0 && FD_ISSET(llmnrd_sock_ipv6, &rfds))
+				llmnr_recv(llmnrd_sock_ipv6);
+		}
+	}
+
+	ret = 0;
 out:
+	if (llmnrd_sock_rtnl >= 0)
+		close(llmnrd_sock_rtnl);
+	if (llmnrd_sock_ipv6 >= 0)
+		close(llmnrd_sock_ipv6);
+	if (llmnrd_sock_ipv4 >= 0)
+		close(llmnrd_sock_ipv4);
 	free(hostname);
-	return ret;
+	return ret == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -37,52 +37,17 @@
 #include "llmnr-packet.h"
 #include "llmnr.h"
 
-static int llmnr_sock_ipv4 = -1;
-static int llmnr_sock_ipv6 = -1;
-static bool llmnr_running = true;
-/*
- * Host name in DNS name format (length octet + name + 0 byte)
- */
+static bool llmnr_ipv6 = false;
+/* Host name in DNS name format (length octet + name + 0 byte) */
 static char llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 2];
 
-static void llmnr_iface_event_handle(enum iface_event_type type, unsigned char af,
-				     unsigned int ifindex)
-{
-	switch (af) {
-	case AF_INET:
-		socket_mcast_group_ipv4(llmnr_sock_ipv4, ifindex, type == IFACE_ADD);
-		break;
-	case AF_INET6:
-		socket_mcast_group_ipv6(llmnr_sock_ipv6, ifindex, type == IFACE_ADD);
-		break;
-	default:
-		/* ignore */
-		break;
-	}
-}
-
-int llmnr_init(const char *hostname, uint16_t port, bool ipv6, const char *iface)
+void llmnr_init(const char *hostname, bool ipv6)
 {
 	llmnr_hostname[0] = strlen(hostname);
 	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
 	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
-	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
-	if (iface)
-		log_info("Binding to interface %s\n", iface);
 
-	llmnr_sock_ipv4 = socket_open_ipv4(port, iface);
-	if (llmnr_sock_ipv4 < 0)
-		return -1;
-
-	if (ipv6) {
-		llmnr_sock_ipv6 = socket_open_ipv6(port, iface);
-		if (llmnr_sock_ipv6 < 0)
-			return -1;
-	}
-
-	iface_register_event_handler(&llmnr_iface_event_handle);
-
-	return 0;
+	llmnr_ipv6 = ipv6;
 }
 
 static bool llmnr_name_matches(const uint8_t *query)
@@ -134,7 +99,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 		return;
 
 	/* No AAAA responses if IPv6 is disabled */
-	if (llmnr_sock_ipv6 < 0 && qtype == LLMNR_QTYPE_AAAA)
+	if (llmnr_ipv6 < 0 && qtype == LLMNR_QTYPE_AAAA)
 		return;
 
 	switch (qtype) {
@@ -254,7 +219,7 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 		llmnr_respond(ifindex, hdr, query, query_len, sock, sst);
 }
 
-static void llmnr_recv(int sock)
+void llmnr_recv(int sock)
 {
 	uint8_t pktbuf[2048], aux[128];
 	struct msghdr msg;
@@ -296,46 +261,4 @@ static void llmnr_recv(int sock)
 				     (const struct sockaddr_storage *)&sin_r);
 	else
 		log_warn("Could not get interface of incoming packet\n");
-}
-
-int llmnr_run(void)
-{
-	int ret = -1;
-
-	while (llmnr_running) {
-		fd_set rfds;
-		int nfds, ret;
-
-		FD_ZERO(&rfds);
-		FD_SET(llmnr_sock_ipv4, &rfds);
-		if (llmnr_sock_ipv6 >= 0) {
-			FD_SET(llmnr_sock_ipv6, &rfds);
-			nfds = max(llmnr_sock_ipv4, llmnr_sock_ipv6) + 1;
-		} else
-			nfds = llmnr_sock_ipv4 + 1;
-
-		ret = select(nfds, &rfds, NULL, NULL, NULL);
-		if (ret < 0) {
-			if (errno != EINTR)
-				log_err("Failed to select() on socket: %s\n", strerror(errno));
-			goto out;
-		} else if (ret) {
-			if (FD_ISSET(llmnr_sock_ipv4, &rfds))
-				llmnr_recv(llmnr_sock_ipv4);
-			if (llmnr_sock_ipv6 >= 0 && FD_ISSET(llmnr_sock_ipv6, &rfds))
-				llmnr_recv(llmnr_sock_ipv6);
-		}
-	}
-
-	ret = 0;
-out:
-	close(llmnr_sock_ipv4);
-	if (llmnr_sock_ipv6 >= 0)
-		close(llmnr_sock_ipv6);
-	return ret;
-}
-
-void llmnr_stop(void)
-{
-	llmnr_running = false;
 }

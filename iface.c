@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -19,7 +19,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <netdb.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
@@ -40,10 +39,7 @@
 
 #include "iface.h"
 
-static bool iface_running = true;
-static bool iface_ipv6 = false;
 static unsigned int iface_ifindex = 0;
-static pthread_t iface_thread;
 static iface_event_handler_t iface_event_handler;
 
 struct iface_record {
@@ -54,7 +50,6 @@ struct iface_record {
 };
 
 static struct list_head iface_list_head;
-static pthread_mutex_t iface_list_mutex;
 
 size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 			 struct sockaddr_storage *addrs, size_t addrs_size)
@@ -64,8 +59,6 @@ size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 
 	if (!addrs)
 		return 0;
-
-	pthread_mutex_lock(&iface_list_mutex);
 
 	list_for_each_entry(rec, &iface_list_head, list) {
 		if (rec->index == ifindex) {
@@ -80,8 +73,6 @@ size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 			break;
 		}
 	}
-
-	pthread_mutex_unlock(&iface_list_mutex);
 
 	return n;
 }
@@ -182,8 +173,6 @@ static void iface_addr_add(unsigned int index, unsigned char family, const void 
 
 	fill_sockaddr_storage(&sst, family, addr);
 
-	pthread_mutex_lock(&iface_list_mutex);
-
 	list_for_each_entry(rec, &iface_list_head, list)
 		if (rec->index == index)
 			goto add;
@@ -195,7 +184,6 @@ static void iface_addr_add(unsigned int index, unsigned char family, const void 
 	list_add_tail(&rec->list, &iface_list_head);
 add:
 	iface_record_addr_add(rec, &sst);
-	pthread_mutex_unlock(&iface_list_mutex);
 }
 
 static void iface_addr_del(unsigned int index, unsigned char family, const void *addr)
@@ -205,16 +193,12 @@ static void iface_addr_del(unsigned int index, unsigned char family, const void 
 
 	fill_sockaddr_storage(&sst, family, addr);
 
-	pthread_mutex_lock(&iface_list_mutex);
-
 	list_for_each_entry(rec, &iface_list_head, list) {
 		if (rec->index == index) {
 			iface_record_addr_del(rec, &sst);
 			break;
 		}
 	}
-
-	pthread_mutex_unlock(&iface_list_mutex);
 }
 
 static void iface_nlmsg_change_link(const struct nlmsghdr *nlh __unused)
@@ -342,75 +326,33 @@ static int iface_rtnl_enumerate(int sock, uint16_t type, unsigned char family)
 	return iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen);
 }
 
-void iface_register_event_handler(iface_event_handler_t event_handler)
+void iface_init(int sock, const char *iface, bool ipv6,
+		iface_event_handler_t event_handler)
 {
-	iface_event_handler = event_handler;
-}
-
-int iface_run(void)
-{
-	int ret = -1;
-	int sock;
-
 	INIT_LIST_HEAD(&iface_list_head);
-	if (pthread_mutex_init(&iface_list_mutex, NULL) != 0) {
-		log_err("Failed to initialize interface list mutex\n");
-		return -1;
-	}
-
-	sock = socket_open_rtnl(iface_ipv6);
-	if (sock < 0)
-		return -1;
-
-	/* send RTM_GETADDR request to initially populate the interface list */
-	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET) < 0)
-		goto out;
-	if (iface_ipv6) {
-		if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
-			goto out;
-	}
-
-	while (iface_running) {
-		ssize_t recvlen;
-		uint8_t pktbuf[8192];
-
-		if ((recvlen = recv(sock, pktbuf, sizeof(pktbuf), 0)) < 0) {
-			if (errno != EINTR)
-				log_err("Failed to receive netlink message: %s\n", strerror(errno));
-			goto out;
-		}
-
-		if (iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen) < 0)
-			log_warn("Error processing netlink message\n");
-	}
-
-	pthread_mutex_destroy(&iface_list_mutex);
-	ret = 0;
-out:
-	close(sock);
-	return ret;
-}
-
-static void* iface_run_wrapper(void *data __unused)
-{
-	return ERR_PTR(iface_run());
-}
-
-int iface_start_thread(bool ipv6, const char *iface)
-{
-	iface_ipv6 = ipv6;
+	iface_event_handler = event_handler;
 	if (iface)
 		iface_ifindex = if_nametoindex(iface);
 
-	if (pthread_create(&iface_thread, NULL, iface_run_wrapper, NULL) < 0) {
-		log_err("Failed to start interface monitoring thread\n");
-		return -1;
-	}
-
-	return 0;
+	/* send RTM_GETADDR request to initially populate the interface list */
+	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET) < 0)
+		log_err("Failed to enumerate rtnl interfaces: %s\n", strerror(errno));
+	if (ipv6)
+		if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
+			log_err("Failed to enumerate rtnl interfaces: %s\n", strerror(errno));
 }
 
-void iface_stop(void)
+void iface_recv(int sock)
 {
-	iface_running = false;
+	ssize_t recvlen;
+	uint8_t pktbuf[8192];
+
+	if ((recvlen = recv(sock, pktbuf, sizeof(pktbuf), 0)) < 0) {
+		if (errno != EINTR)
+			log_err("Failed to receive netlink message: %s\n", strerror(errno));
+		return;
+	}
+
+	if (iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen) < 0)
+		log_warn("Error processing netlink message\n");
 }

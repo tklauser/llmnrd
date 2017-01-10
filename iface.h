@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -30,9 +30,9 @@ enum iface_event_type {
 typedef void (*iface_event_handler_t)(enum iface_event_type, unsigned char af,
 				      unsigned int ifindex);
 
-void iface_register_event_handler(iface_event_handler_t event_handler);
-int iface_start_thread(bool ipv6, const char *iface);
-void iface_stop(void);
+void iface_init(int sock, const char *iface, bool ipv6,
+		iface_event_handler_t event_handler);
+void iface_recv(int sock);
 
 size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 			 struct sockaddr_storage *addrs, size_t addrs_size);

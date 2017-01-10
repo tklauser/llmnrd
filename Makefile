@@ -7,7 +7,7 @@ VERSION = 0.2.1
 # llmnrd binary
 D_P 	= llmnrd
 D_OBJS	= llmnr.o iface.o socket.o util.o llmnrd.o
-D_LIBS	= -lpthread
+D_LIBS	=
 
 # llmnr-query binary
 Q_P 	= llmnr-query
