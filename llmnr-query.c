@@ -333,7 +333,7 @@ int main(int argc, char **argv)
 				char addr[INET6_ADDRSTRLEN];
 				uint16_t type, clss, addr_size;
 				uint32_t ttl;
-				char *name;
+				const char *name;
 				int af;
 
 				/* compression? */
