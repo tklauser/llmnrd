@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2014-2017 Tobias Klauser <tklauser@distanz.ch>
  * Copyright (C) 2009-2012 Daniel Borkmann
  *
  * This file is part of llmnrd.
@@ -46,6 +46,8 @@
 	typeof(y) _max2 = (y);		\
 	(void) (&_max1 == &_max2);	\
 	_max1 > _max2 ? _max1 : _max2; })
+
+static inline void panic(const char *fmt, ...) __check_format_printf(1, 2);
 
 static inline void __noreturn panic(const char *fmt, ...)
 {

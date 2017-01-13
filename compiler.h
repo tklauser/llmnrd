@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -27,6 +27,10 @@
 # endif
 # ifndef __unused
 #  define __unused		__attribute__((unused))
+# endif
+# ifndef __check_format_printf
+#  define __check_format_printf(__fmt, __args)	\
+				__attribute__ ((format (printf, (__fmt), (__args))))
 # endif
 # ifndef offsetof
 #  define offsetof(a, b)	__builtin_offsetof(a, b)
