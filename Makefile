@@ -31,7 +31,12 @@ ifeq ($(DEBUG), 1)
   CFLAGS_MIN += -g -DDEBUG
 endif
 
-CFLAGS ?= -O2
+CFLAGS_WARN := -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations	\
+	-Wdeclaration-after-statement -Wsign-compare -Winit-self		\
+	-Wformat-nonliteral -Wformat-security -Wmissing-format-attribute	\
+	-Wundef -Wbad-function-cast -Waggregate-return -Wunused -Wwrite-strings
+
+CFLAGS ?= -O2 $(CFLAGS_WARN)
 override CFLAGS := $(CFLAGS_MIN) $(CFLAGS)
 
 Q	?= @
