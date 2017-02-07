@@ -209,9 +209,14 @@ int socket_mcast_group_ipv4(int sock, unsigned int ifindex, bool join)
 
 	if (setsockopt(sock, IPPROTO_IP, join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
 		       &mreq, sizeof(mreq)) < 0) {
-		log_err("Failed to join IPv4 multicast group on interface %s: %s\n",
-			if_indextoname(ifindex, ifname), strerror(errno));
-		return -1;
+		/* ignore error if we attempt to join a group the interface is
+		 * already part of */
+		if (!join || errno != EADDRINUSE) {
+			log_err("Failed to %s IPv4 multicast group membership on interface %s: %s\n",
+				join ? "add" : "drop", if_indextoname(ifindex, ifname),
+				strerror(errno));
+			return -1;
+		}
 	}
 
 	return 0;
@@ -232,9 +237,14 @@ int socket_mcast_group_ipv6(int sock, unsigned int ifindex, bool join)
 
 	if (setsockopt(sock, IPPROTO_IPV6, join ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP,
 		       &mreq6, sizeof(mreq6)) < 0) {
-		log_err("Failed to join IPv6 multicast group on interface %s: %s\n",
-			if_indextoname(ifindex, ifname), strerror(errno));
-		return -1;
+		/* ignore error if we attempt to join a group the interface is
+		 * already part of */
+		if (!join || errno != EADDRINUSE) {
+			log_err("Failed to %s IPv6 multicast group membership on interface %s: %s\n",
+				join ? "add" : "drop", if_indextoname(ifindex, ifname),
+				strerror(errno));
+			return -1;
+		}
 	}
 
 	return 0;
