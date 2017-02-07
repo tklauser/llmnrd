@@ -61,9 +61,15 @@ static bool llmnr_name_matches(const uint8_t *query)
 	if (query[1 + n] != 0)
 		return false;
 
-	for (i = 1; i < llmnr_hostname[0]; i++)
-		if (tolower(query[i]) != tolower(llmnr_hostname[i]))
+	for (i = 1; i <= n; i++) {
+		char a = query[i];
+		char b = llmnr_hostname[i];
+		a = isalpha(a) ? tolower(a) : a;
+		b = isalpha(b) ? tolower(b) : b;
+		if (a != b) {
 			return false;
+		}
+	}
 	return true;
 }
 
