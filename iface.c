@@ -297,14 +297,12 @@ static int iface_nlmsg_process(const struct nlmsghdr *nlh, size_t len)
 	return 0;
 }
 
-static int iface_rtnl_enumerate(int sock, uint16_t type, unsigned char family)
+static void iface_rtnl_enumerate(int sock, uint16_t type, unsigned char family)
 {
 	struct {
 		struct nlmsghdr n;
 		struct rtgenmsg r;
 	} req;
-	ssize_t recvlen;
-	uint8_t pktbuf[8192];
 
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.r));
@@ -314,16 +312,11 @@ static int iface_rtnl_enumerate(int sock, uint16_t type, unsigned char family)
 
 	if (send(sock, &req, req.n.nlmsg_len, 0) < 0) {
 		log_err("Failed to send netlink enumeration message: %s\n", strerror(errno));
-		return -1;
+		return;
 	}
 
-	if ((recvlen = recv(sock, pktbuf, sizeof(pktbuf), 0)) < 0) {
-		if (errno != EINTR)
-			log_err("Failed to receive netlink message: %s\n", strerror(errno));
-		return -1;
-	}
-
-	return iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen);
+	if (iface_recv(sock) < 0)
+		log_err("Failed to enumerate rtnl interfaces: %s\n", strerror(errno));
 }
 
 void iface_init(int sock, const char *iface, bool ipv6,
@@ -335,14 +328,12 @@ void iface_init(int sock, const char *iface, bool ipv6,
 		iface_ifindex = if_nametoindex(iface);
 
 	/* send RTM_GETADDR request to initially populate the interface list */
-	if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET) < 0)
-		log_err("Failed to enumerate rtnl interfaces: %s\n", strerror(errno));
+	iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET);
 	if (ipv6)
-		if (iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6) < 0)
-			log_err("Failed to enumerate rtnl interfaces: %s\n", strerror(errno));
+		iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6);
 }
 
-void iface_recv(int sock)
+int iface_recv(int sock)
 {
 	ssize_t recvlen;
 	uint8_t pktbuf[8192];
@@ -350,9 +341,8 @@ void iface_recv(int sock)
 	if ((recvlen = recv(sock, pktbuf, sizeof(pktbuf), 0)) < 0) {
 		if (errno != EINTR)
 			log_err("Failed to receive netlink message: %s\n", strerror(errno));
-		return;
+		return -1;
 	}
 
-	if (iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen) < 0)
-		log_warn("Error processing netlink message\n");
+	return iface_nlmsg_process((const struct nlmsghdr *)pktbuf, recvlen);
 }

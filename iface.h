@@ -32,7 +32,7 @@ typedef void (*iface_event_handler_t)(enum iface_event_type, unsigned char af,
 
 void iface_init(int sock, const char *iface, bool ipv6,
 		iface_event_handler_t event_handler);
-void iface_recv(int sock);
+int iface_recv(int sock);
 
 size_t iface_addr_lookup(unsigned int ifindex, unsigned char family,
 			 struct sockaddr_storage *addrs, size_t addrs_size);
