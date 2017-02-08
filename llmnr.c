@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include <arpa/inet.h>
@@ -52,7 +53,7 @@ void llmnr_init(const char *hostname, bool ipv6)
 
 static bool llmnr_name_matches(const uint8_t *query)
 {
-	uint8_t i, n = llmnr_hostname[0];
+	uint8_t n = llmnr_hostname[0];
 
 	/* length */
 	if (query[0] != n)
@@ -61,16 +62,7 @@ static bool llmnr_name_matches(const uint8_t *query)
 	if (query[1 + n] != 0)
 		return false;
 
-	for (i = 1; i <= n; i++) {
-		char a = query[i];
-		char b = llmnr_hostname[i];
-		a = isalpha(a) ? tolower(a) : a;
-		b = isalpha(b) ? tolower(b) : b;
-		if (a != b) {
-			return false;
-		}
-	}
-	return true;
+	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0;
 }
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
