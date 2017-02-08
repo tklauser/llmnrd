@@ -216,8 +216,9 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 	query = pktbuf + sizeof(struct llmnr_hdr);
 	query_len = len - sizeof(struct llmnr_hdr);
 	name_len = query[0];
+
 	/* Invalid name in query? */
-	if (name_len == 0 || name_len >= query_len || query[1 + name_len] != 0)
+	if (name_len == 0 || name_len >= query_len || name_len > LLMNR_LABEL_MAX_SIZE || query[1 + name_len] != 0)
 		return;
 
 	/* Authoritative? */
