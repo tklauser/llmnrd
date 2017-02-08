@@ -330,7 +330,7 @@ int main(int argc, char **argv)
 
 			for (j = 0; j < ancount; ++j) {
 				uint8_t nl = *pkt_put(p, 1);
-				char addr[INET6_ADDRSTRLEN];
+				char addr[INET6_ADDRSTRLEN + 1];
 				uint16_t type, clss, addr_size;
 				uint32_t ttl;
 				const char *name;
@@ -363,6 +363,7 @@ int main(int argc, char **argv)
 
 				if (!inet_ntop(af, pkt_put(p, addr_size), addr, ARRAY_SIZE(addr)))
 					strncpy(addr, "<invalid>", sizeof(addr));
+				addr[INET6_ADDRSTRLEN] = '\0';
 
 				log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
 			}
