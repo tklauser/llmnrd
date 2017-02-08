@@ -297,7 +297,6 @@ int main(int argc, char **argv)
 		FD_ZERO(&rfds);
 		FD_SET(sock, &rfds);
 
-		/* wait up to one second for a response */
 		tv.tv_sec = timeout_ms / 1000;
 		tv.tv_usec = (timeout_ms % 1000) * 1000;
 
@@ -347,10 +346,14 @@ int main(int argc, char **argv)
 					name = (char *)pkt_put(p, nl + 1);
 				}
 
-				type = htons(*(uint16_t *)pkt_put(p, sizeof(type)));
-				clss = htons(*(uint16_t *)pkt_put(p, sizeof(clss)));
-				ttl = htonl(*(uint32_t *)pkt_put(p, sizeof(ttl)));
-				addr_size = htons(*(uint16_t *)pkt_put(p, sizeof(addr_size)));
+				type = htons(pkt_put_extract_u16(p));
+				clss = htons(pkt_put_extract_u16(p));
+
+				if (clss != LLMNR_CLASS_IN)
+					log_warn("Unexpected response class received: %d\n", clss);
+
+				ttl = htonl(pkt_put_extract_u32(p));
+				addr_size = htons(pkt_put_extract_u16(p));
 
 				if (addr_size == sizeof(struct in_addr)) {
 					af = AF_INET;
@@ -361,7 +364,8 @@ int main(int argc, char **argv)
 					break;
 				}
 
-				if (!inet_ntop(af, pkt_put(p, addr_size), addr, ARRAY_SIZE(addr)))
+				memcpy(&sst, pkt_put(p, addr_size), addr_size);
+				if (!inet_ntop(af, &sst, addr, ARRAY_SIZE(addr)))
 					strncpy(addr, "<invalid>", sizeof(addr));
 				addr[INET6_ADDRSTRLEN] = '\0';
 

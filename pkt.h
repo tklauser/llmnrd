@@ -1,7 +1,7 @@
 /*
  * Packet buffer structure and utilities.
  *
- * Copyright (C) 2015 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>
  *
  * Based on pkt_buff.h from the netsniff-ng toolkit which is:
  *
@@ -107,5 +107,18 @@ static inline void pkt_put_u##__bitwidth(struct pkt *p, uint##__bitwidth##_t val
 DEFINE_PKT_PUT(8)
 DEFINE_PKT_PUT(16)
 DEFINE_PKT_PUT(32)
+
+/* extract values from struct pkt in an alignment-safe way */
+#define DEFINE_PKT_PUT_EXTRACT(__bitwidth)						\
+static inline uint##__bitwidth##_t pkt_put_extract_u##__bitwidth(struct pkt *p)		\
+{											\
+	uint##__bitwidth##_t val;							\
+	memcpy(&val, pkt_put(p, sizeof(val)), sizeof(val));				\
+	return val;									\
+}
+
+DEFINE_PKT_PUT_EXTRACT(8)
+DEFINE_PKT_PUT_EXTRACT(16)
+DEFINE_PKT_PUT_EXTRACT(32)
 
 #endif /* PKT_H */
