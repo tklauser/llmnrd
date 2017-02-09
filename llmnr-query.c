@@ -39,6 +39,9 @@
 #include "log.h"
 #include "pkt.h"
 
+/* Maximum possible size RFC 4795, section 2.1 */
+static const size_t LLMNR_QUERY_PKT_BUF_SIZE = 9194;
+
 static const char *short_ops = "c:d:i:I:t:T:6hV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
@@ -213,7 +216,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	p = pkt_alloc(128);
+	p = pkt_alloc(LLMNR_QUERY_PKT_BUF_SIZE);
 
 	log_info("LLMNR query: %s IN %s\n", query_name, query_type(qtype));
 
