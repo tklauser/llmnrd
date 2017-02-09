@@ -328,23 +328,25 @@ int main(int argc, char **argv)
 			pkt_put(p, query_pkt_len);
 
 			for (j = 0; j < ancount; ++j) {
-				uint8_t nl = *pkt_put(p, 1);
+				uint8_t nl = pkt_put_extract_u8(p);
 				char addr[INET6_ADDRSTRLEN + 1];
 				uint16_t type, clss, addr_size;
 				uint32_t ttl;
-				const char *name;
+				char name[LLMNR_LABEL_MAX_SIZE + 1];
 				int af;
 
 				/* compression? */
 				if (nl & 0xC0) {
-					uint16_t ptr = (nl & 0x3F) << 8 | *pkt_put(p, 1);
-					if (ptr < p->size - 1)
-						name = (char *)p->data + ptr + 1;
-					else
-						name = "<invalid>";
-				} else {
-					name = (char *)pkt_put(p, nl + 1);
-				}
+					uint16_t ptr = (nl & 0x3F) << 8 | pkt_put_extract_u8(p);
+					if (ptr < p->size - 1) {
+						uint8_t nnl = p->data[ptr];
+						strncpy(name, (char *)&p->data[ptr + 1], nnl);
+					} else
+						strncpy(name, "<invalid>", LLMNR_LABEL_MAX_SIZE);
+				} else
+					strncpy(name, (char *)pkt_put(p, nl + 1), nl);
+
+				name[LLMNR_LABEL_MAX_SIZE] = '\0';
 
 				type = htons(pkt_put_extract_u16(p));
 				clss = htons(pkt_put_extract_u16(p));
