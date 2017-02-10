@@ -121,7 +121,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 
 	/*
 	 * This is the max response length (i.e. using all IPv6 addresses and
-	 * not message compression). We might not use all of it.
+	 * no message compression). We might not use all of it.
 	 */
 	response_len = n * (1 + name_len + 1 + 2 + 2 + 4 + 2 + sizeof(struct in6_addr));
 	p = pkt_alloc(sizeof(*hdr) + query_len + response_len);
