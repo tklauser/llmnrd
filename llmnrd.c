@@ -28,6 +28,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <sys/ioctl.h>
 #include <sys/param.h>
 
@@ -43,6 +47,7 @@
 static bool llmnrd_running = true;
 static int llmnrd_sock_ipv4 = -1;
 static int llmnrd_sock_ipv6 = -1;
+static int llmnrd_fd_hostname = -1;
 
 static const char *short_opts = "H:i:p:6dhV";
 static const struct option long_opts[] = {
@@ -129,6 +134,22 @@ static void iface_event_handle(enum iface_event_type type, unsigned char af,
 	}
 }
 
+static void hostname_change_handle(char *hostname, size_t maxlen)
+{
+	char *newname;
+
+	newname = xzalloc(maxlen);
+	if (gethostname(newname, maxlen) == 0) {
+		newname[maxlen - 1] = '\0';
+		if (strncmp(hostname, newname, maxlen) != 0) {
+			log_info("Hostname changed to %s\n", newname);
+			strncpy(hostname, newname, maxlen);
+			llmnr_set_hostname(hostname);
+		}
+	}
+	free(newname);
+}
+
 int main(int argc, char **argv)
 {
 	int c, ret = -1;
@@ -183,6 +204,8 @@ int main(int argc, char **argv)
 			return EXIT_FAILURE;
 		}
 		hostname[MAXHOSTNAMELEN - 1] = '\0';
+
+		llmnrd_fd_hostname = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY);
 	}
 
 	if (daemonize) {
@@ -216,10 +239,12 @@ int main(int argc, char **argv)
 	nfds = max(llmnrd_sock_ipv4, llmnrd_sock_rtnl);
 	if (llmnrd_sock_ipv6 >= 0)
 		nfds = max(nfds, llmnrd_sock_ipv6);
+	if (llmnrd_fd_hostname >= 0)
+		nfds = max(nfds, llmnrd_fd_hostname);
 	nfds += 1;
 
 	while (llmnrd_running) {
-		fd_set rfds;
+		fd_set rfds, efds;
 
 		FD_ZERO(&rfds);
 		FD_SET(llmnrd_sock_ipv4, &rfds);
@@ -227,7 +252,11 @@ int main(int argc, char **argv)
 		if (llmnrd_sock_ipv6 >= 0)
 			FD_SET(llmnrd_sock_ipv6, &rfds);
 
-		ret = select(nfds, &rfds, NULL, NULL, NULL);
+		FD_ZERO(&efds);
+		if (llmnrd_fd_hostname >= 0)
+			FD_SET(llmnrd_fd_hostname, &efds);
+
+		ret = select(nfds, &rfds, NULL, &efds, NULL);
 		if (ret < 0) {
 			if (errno != EINTR)
 				log_err("Failed to select() on socket: %s\n", strerror(errno));
@@ -242,6 +271,8 @@ int main(int argc, char **argv)
 				llmnr_recv(llmnrd_sock_ipv4);
 			if (llmnrd_sock_ipv6 >= 0 && FD_ISSET(llmnrd_sock_ipv6, &rfds))
 				llmnr_recv(llmnrd_sock_ipv6);
+			if (llmnrd_fd_hostname >= 0 && FD_ISSET(llmnrd_fd_hostname, &efds))
+				hostname_change_handle(hostname, MAXHOSTNAMELEN);
 		}
 	}
 

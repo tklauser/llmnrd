@@ -42,12 +42,16 @@ static bool llmnr_ipv6 = false;
 /* Host name in DNS name format (length octet + name + 0 byte) */
 static char llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 2];
 
-void llmnr_init(const char *hostname, bool ipv6)
+void llmnr_set_hostname(const char *hostname)
 {
 	llmnr_hostname[0] = strlen(hostname);
 	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
 	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
+}
 
+void llmnr_init(const char *hostname, bool ipv6)
+{
+	llmnr_set_hostname(hostname);
 	llmnr_ipv6 = ipv6;
 }
 
