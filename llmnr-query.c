@@ -344,12 +344,13 @@ int main(int argc, char **argv)
 					if (ptr < p->size - 1) {
 						uint8_t nnl = p->data[ptr];
 						strncpy(name, (char *)&p->data[ptr + 1], nnl);
+						name[nnl] = '\0';
 					} else
 						strncpy(name, "<invalid>", LLMNR_LABEL_MAX_SIZE);
-				} else
+				} else {
 					strncpy(name, (char *)pkt_put(p, nl + 1), nl);
-
-				name[LLMNR_LABEL_MAX_SIZE] = '\0';
+					name[nl] = '\0';
+				}
 
 				type = htons(pkt_put_extract_u16(p));
 				clss = htons(pkt_put_extract_u16(p));
