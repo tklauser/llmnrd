@@ -100,8 +100,9 @@ otherwise helped in the development of llmnrd:
 * Martin Hauke
 * Michael Evertz (@dvl-mevertz)
 * Pali Rohár
-* Schimmelreiter (@Schimmelreiter)
-* SviMik (@svimik)
+* @Schimmelreiter
+* @svimik
+* @tbetker
 
 Thanks a lot!
 
