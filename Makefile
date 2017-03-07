@@ -8,14 +8,17 @@ VERSION = 0.4
 D_P 	= llmnrd
 D_OBJS	= llmnr.o iface.o socket.o util.o llmnrd.o
 D_LIBS	=
+D_MAN	= $(D_P).8
 
 # llmnr-query binary
 Q_P 	= llmnr-query
 Q_OBJS	= util.o llmnr-query.o
 Q_LIBS	=
+Q_MAN	= $(Q_P).1
 
 CC	= $(CROSS_COMPILE)gcc
 INSTALL	= install
+GZIP	= gzip -9 -c
 
 CPPFLAGS ?=
 LDFLAGS	?=
@@ -52,6 +55,8 @@ prefix	?= /usr/local
 
 BINDIR	= $(prefix)/bin
 SBINDIR	= $(prefix)/sbin
+MAN1DIR = $(prefix)/share/man/man1
+MAN8DIR = $(prefix)/share/man/man8
 DESTDIR	=
 
 all: $(D_P) $(Q_P)
@@ -72,11 +77,17 @@ install_$(D_P): $(D_P)
 	@echo "  INSTALL $(D_P)"
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(SBINDIR)
 	$(Q)$(INSTALL) -m 755 $(D_P) $(DESTDIR)$(SBINDIR)/$(D_P)
+	$(Q)$(GZIP) doc/$(D_MAN) > $(D_MAN).gz
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(MAN8DIR)
+	$(Q)$(INSTALL) -m 644 $(D_MAN).gz $(DESTDIR)$(MAN8DIR)/$(D_MAN).gz
 
 install_$(Q_P): $(Q_P)
 	@echo "  INSTALL $(Q_P)"
 	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(BINDIR)
 	$(Q)$(INSTALL) -m 755 $(Q_P) $(DESTDIR)$(BINDIR)/$(Q_P)
+	$(Q)$(GZIP) doc/$(Q_MAN) > $(Q_MAN).gz
+	$(Q)$(INSTALL) -d -m 755 $(DESTDIR)$(MAN1DIR)
+	$(Q)$(INSTALL) -m 644 $(Q_MAN).gz $(DESTDIR)$(MAN1DIR)/$(Q_MAN).gz
 
 install: install_$(D_P) install_$(Q_P)
 
@@ -84,6 +95,8 @@ clean:
 	@echo "  CLEAN"
 	$(Q)rm -f $(D_OBJS) $(D_P)
 	$(Q)rm -f $(Q_OBJS) $(Q_P)
+	$(Q)rm -f $(D_P).8.gz
+	$(Q)rm -f $(Q_P).1.gz
 
 # Maintainer targets
 
