@@ -1,0 +1,40 @@
+.TH LLMNR-QUERY 1 "07 March 2017" llmnrd llmnrd
+.SH NAME
+llmnr-query \- LLMNR (RFC 4795) query tool
+.SH SYNOPSIS
+\fBllmnr-query\fR [\fIoptions\fR] \fIname\fR
+.SH DESCRIPTION
+Send LLMNR queries to the LLMNR multicast address (224.0.0.252 for IPv4,
+ff02:0:0:0:0:0:1:3 for IPv6). \fIname\fR specifies the hostname to query.
+.SH OPTIONS
+.TP
+.B -c <num>, --count <num>
+Number of queries to send (default: 1).
+.TP
+.B -d <num>, --id <num>
+Set LLMNR transaction id (default: 0).
+.TP
+.B -i <num>, --interval <num>
+Set interval between queries in milliseconds (default: 500).
+.TP
+.B -I <dev>, --interface <dev>
+Send multicast query over specified interface, e.g. eth0, wlan0.
+.TP
+.B -t <num>, --timeout <num>
+Set time to wait for reply in milliseconds (default: 1000).
+.TP
+.B -T <type>, --type <type>
+Set query type. Must be one of A, AAAA, ANY (default: ANY).
+.TP
+.B -6, --ipv6
+End queries over IPv6.
+.TP
+.B -h, --help
+Show usage information.
+.TP
+.B -V, --version
+Show llmnr-query version.
+.SH SEE ALSO
+.BR llmnrd(8)
+.SH AUTHOR
+Tobias Klauser <tklauser@distanz.ch>

@@ -1,0 +1,38 @@
+.TH LLMNRD 8 "07 March 2017" llmnrd llmnrd
+.SH NAME
+llmnrd \- LLMNR (RFC 4795) responder daemon
+.SH SYNOPSIS
+\fBllmnrd\fR [\fIoptions\fR]
+.SH DESCRIPTION
+.B llmnrd
+is a user space daemon implementing the Link-Local Multicast Name Resolution
+(LLMNR) protocol according to RFC 4795. It will respond to name resolution
+queries sent by Windows clients in networks where no DNS server is available.
+Both IPv4 and IPv6 are supported.
+.SH OPTIONS
+.TP
+.B -H <name>, --hostname <name>
+Manually set hostname to respond with. By default the system hostname is used.
+.TP
+.B -i <dev>, --interface <dev>
+Bind socket to a specific interface, e.g. eth0, wlan0.
+.TP
+.B -p <num>, --port <num>
+Set port number to listen on. By default the port 5355 as specified in RFC 4795 is
+used.
+.TP
+.B -6, --ipv6
+Enable LLMNR name resolution over IPv6.
+.TP
+.B -d, --daemonize
+Run llmnrd as daemon in the background.
+.TP
+.B -h, --help
+Show usage information.
+.TP
+.B -V, --version
+Show llmnrd version.
+.SH SEE ALSO
+.BR llmnr-query(1)
+.SH AUTHOR
+Tobias Klauser <tklauser@distanz.ch>
