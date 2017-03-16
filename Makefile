@@ -34,10 +34,20 @@ ifeq ($(DEBUG), 1)
   CFLAGS_MIN += -g -DDEBUG
 endif
 
-CFLAGS_WARN := -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations	\
-	-Wdeclaration-after-statement -Wsign-compare -Winit-self		\
-	-Wformat-nonliteral -Wformat-security -Wmissing-format-attribute	\
-	-Wundef -Wbad-function-cast -Waggregate-return -Wunused -Wwrite-strings
+CFLAGS_WARN := -Wextra 			\
+	-Waggregate-return		\
+	-Wbad-function-cast		\
+	-Wdeclaration-after-statement	\
+	-Wformat-nonliteral		\
+	-Wformat-security		\
+	-Wmissing-declarations		\
+	-Wmissing-format-attribute	\
+	-Wmissing-prototypes		\
+	-Wsign-compare			\
+	-Wstrict-prototypes		\
+	-Wundef				\
+	-Wunused			\
+	-Wwrite-strings
 
 CFLAGS ?= -O2 $(CFLAGS_WARN)
 override CFLAGS := $(CFLAGS_MIN) $(CFLAGS)
