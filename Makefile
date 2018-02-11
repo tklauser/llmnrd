@@ -16,7 +16,7 @@ Q_OBJS	= util.o llmnr-query.o
 Q_LIBS	=
 Q_MAN	= $(Q_P).1
 
-CC	= $(CROSS_COMPILE)gcc
+CC	?= $(CROSS_COMPILE)gcc
 INSTALL	= install
 GZIP	= gzip -9 -c
 
