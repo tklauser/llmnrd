@@ -32,11 +32,12 @@ $ sudo make prefix=<path> install
 Cross-Compilation
 =================
 
-To cross-compile llmnrd for a different architecture, use the `CROSS_COMPILE`
-make variable. To e.g. build it using the arm-linux-gnueabihf toolchain use:
+To cross-compile llmnrd for a different architecture, set the `CC` make
+variable to the corresponding cross-compiler. To e.g. build it using the
+arm-linux-gnueabihf toolchain use:
 
 ```
-$ make CROSS_COMPILE=arm-linux-gnueabihf-
+$ make CC=arm-linux-gnueabihf-gcc
 ```
 
 When cross-compiling, you usually don't want to install the generated binary to
