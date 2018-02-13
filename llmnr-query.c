@@ -1,7 +1,7 @@
 /*
  * Simple LLMNR (RFC 4795) query tool.
  *
- * Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>
+ * Copyright (C) 2015-2018 Tobias Klauser <tklauser@distanz.ch>
  *
  * This file is part of llmnrd.
  *
@@ -42,7 +42,7 @@
 /* Maximum possible size RFC 4795, section 2.1 */
 static const size_t LLMNR_QUERY_PKT_BUF_SIZE = 9194;
 
-static const char *short_ops = "c:d:i:I:t:T:6hV";
+static const char *short_ops = "c:d:i:I:t:T:6ChV";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
 	{ "id",		required_argument,	NULL, 'd' },
@@ -50,6 +50,7 @@ static const struct option long_opts[] = {
 	{ "interface", 	required_argument,	NULL, 'I' },
 	{ "timeout",	required_argument,	NULL, 't' },
 	{ "type",	required_argument,	NULL, 'T' },
+	{ "conflict",	no_argument,		NULL, 'C' },
 	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "help",	no_argument,		NULL, 'h' },
 	{ "version",	no_argument,		NULL, 'V' },
@@ -67,6 +68,7 @@ static void __noreturn usage_and_exit(int status)
 			"  -t, --timeout NUM     time to wait for reply in ms (default: 1000)\n"
 			"  -T, --type TYPE       set query type; must be one of A, AAAA, ANY (default: ANY)\n"
 			"  -6, --ipv6            send queries over IPv6\n"
+			"  -C, --conflict        set conflict bit in query\n"
 			"  -h, --help            show this help and exit\n"
 			"  -V, --version         show version information and exit\n");
 	exit(status);
@@ -75,7 +77,7 @@ static void __noreturn usage_and_exit(int status)
 static void __noreturn version_and_exit(void)
 {
 	fprintf(stdout, "llmnr-query %s %s\n"
-			"Copyright (C) 2015-2017 Tobias Klauser <tklauser@distanz.ch>\n"
+			"Copyright (C) 2015-2018 Tobias Klauser <tklauser@distanz.ch>\n"
 			"Licensed under the GNU General Public License, version 2\n",
 			VERSION_STRING, GIT_VERSION);
 	exit(EXIT_SUCCESS);
@@ -101,6 +103,7 @@ int main(int argc, char **argv)
 	const char *query_name, *iface = NULL;
 	size_t query_name_len;
 	unsigned long i, id = 0, count = 1, interval_ms = 500, timeout_ms = 1000;
+	uint16_t flags = 0;
 	uint16_t qtype = LLMNR_QTYPE_ANY;
 	bool ipv6 = false;
 	struct pkt *p;
@@ -111,6 +114,9 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 'c':
 			count = strtoul(optarg, NULL, 0);
+			break;
+		case 'C':
+			flags |= LLMNR_F_C;
 			break;
 		case 'd':
 			id = strtoul(optarg, NULL, 0);
@@ -141,6 +147,7 @@ int main(int argc, char **argv)
 			break;
 		case 'V':
 			version_and_exit();
+			/* fall through */
 		case 'h':
 			usage_and_exit(EXIT_SUCCESS);
 		default:
@@ -235,7 +242,7 @@ int main(int argc, char **argv)
 
 		hdr = (struct llmnr_hdr *)pkt_put(p, sizeof(*hdr));
 		hdr->id = htons(id + i % UINT16_MAX);
-		hdr->flags = 0;
+		hdr->flags = htons(flags);
 		hdr->qdcount = htons(1);
 		hdr->ancount = 0;
 		hdr->nscount = 0;
