@@ -204,8 +204,8 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 	flags = ntohs(hdr->flags);
 	qdcount = ntohs(hdr->qdcount);
 
-	/* Query invalid as per RFC 4795, section 2.1.1? */
-	if (((flags & (LLMNR_F_QR | LLMNR_F_OPCODE)) != 0) ||
+	/* Query invalid as per RFC 4795, section 2.1.1 */
+	if (((flags & (LLMNR_F_QR | LLMNR_F_OPCODE | LLMNR_F_TC)) != 0) ||
 	    qdcount != 1 || hdr->ancount != 0 || hdr->nscount != 0)
 		return;
 
