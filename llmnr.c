@@ -68,8 +68,8 @@ static bool llmnr_name_matches(const uint8_t *query)
 	if (query[1 + n] != 0)
 		return false;
 
-	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0 || ((const char *)&query[1][0] == '*' && 
-																				(const char *)&query[1][1] == '*' );
+	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0 || (((const char *)&query[1])[0] == '*' && 
+																				((const char *)&query[1])[1] == '*' );
 }
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
