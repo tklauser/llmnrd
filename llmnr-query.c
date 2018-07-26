@@ -39,6 +39,7 @@
 #include "log.h"
 #include "pkt.h"
 
+#define MAXIP 16 //xxx.xxx.xxx.xxx
 /* Maximum possible size RFC 4795, section 2.1 */
 static const size_t LLMNR_QUERY_PKT_BUF_SIZE = 9194;
 
@@ -54,6 +55,7 @@ static const struct option long_opts[] = {
 	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "help",	no_argument,		NULL, 'h' },
 	{ "version",	no_argument,		NULL, 'V' },
+	{ "runalways",	no_argument,		NULL, 'R'},
 	{ NULL,		0,			NULL, 0 },
 };
 
@@ -62,6 +64,7 @@ static void __noreturn usage_and_exit(int status)
 	fprintf(stdout, "Usage: llmnr-query [OPTIONS...] NAME\n"
 			"Options:\n"
 			"  -c, --count NUM       number of queries to send (default: 1)\n"
+			"  -R, --runalways       always runs when new update has arrived it will print\n"
 			"  -d, --id NUM          set LLMNR transaction id (default: 0)\n"
 			"  -i, --interval NUM    interval between queries in ms (default: 500)\n"
 			"  -I, --interface NAME  send multicast over specified interface\n"
@@ -97,6 +100,12 @@ static const char *query_type(uint16_t qtype)
 	}
 }
 
+struct addr_name_entry {
+	char addr[MAXIP];
+	char name[LLMNR_LABEL_MAX_SIZE + 2];
+};
+
+
 int main(int argc, char **argv)
 {
 	int c, sock;
@@ -109,6 +118,13 @@ int main(int argc, char **argv)
 	struct pkt *p;
 	unsigned int ifindex = 0;
 	static const int TTL = 255;
+	struct addr_name_entry *addr_list;
+	int runAlways = 0;
+	int index = 0;
+	int size = 5;
+	int flag = -1;
+
+	addr_list = xzalloc(sizeof(struct addr_name_entry) * size); // initially size is 5
 
 	while ((c = getopt_long(argc, argv, short_ops, long_opts, NULL)) != -1) {
 		switch (c) {
@@ -117,6 +133,9 @@ int main(int argc, char **argv)
 			break;
 		case 'C':
 			flags |= LLMNR_F_C;
+			break;
+		case 'R':
+			runAlways = 1;
 			break;
 		case 'd':
 			id = strtoul(optarg, NULL, 0);
@@ -224,10 +243,12 @@ int main(int argc, char **argv)
 	}
 
 	p = pkt_alloc(LLMNR_QUERY_PKT_BUF_SIZE);
-
+	if(query_name[0] == '*' && query_name[1] == '*')
+		count = 99999; // just for Test
 	log_info("LLMNR query: %s IN %s\n", query_name, query_type(qtype));
 
-	for (i = 0; i < count; i++) {
+	
+	for (i = 0; runAlways || i < count ; i++) {
 		struct llmnr_hdr *hdr;
 		struct sockaddr_storage sst;
 		socklen_t sst_len;
@@ -363,7 +384,8 @@ int main(int argc, char **argv)
 				clss = htons(pkt_put_extract_u16(p));
 
 				if (clss != LLMNR_CLASS_IN)
-					log_warn("Unexpected response class received: %d\n", clss);
+					break;					
+					//log_warn("Unexpected response class received: %d\n", clss);
 
 				ttl = htonl(pkt_put_extract_u32(p));
 				addr_size = htons(pkt_put_extract_u16(p));
@@ -373,7 +395,7 @@ int main(int argc, char **argv)
 				} else if (addr_size == sizeof(struct in6_addr)) {
 					af = AF_INET6;
 				} else {
-					log_warn("Unexpected address size received: %d\n", addr_size);
+					//log_warn("Unexpected address size received: %d\n", addr_size);
 					break;
 				}
 
@@ -381,11 +403,32 @@ int main(int argc, char **argv)
 				if (!inet_ntop(af, &sst, addr, ARRAY_SIZE(addr)))
 					strncpy(addr, "<invalid>", sizeof(addr));
 				addr[INET6_ADDRSTRLEN] = '\0';
+				
+				//add or not to hosts lists
+				flag = 0;
+				for(int k = 0; k < index; ++k){
+					if(strcmp(addr,addr_list[k].addr) == 0){
+						flag = 1;
+						
+						//log_dbg("%s %s\n",addr,addr_list[i].addr);
+					}
+				}
 
-				log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
+				if(!flag){
+					if(index == size ){
+						size *= 2;
+						addr_list = xrealloc(addr_list,sizeof(struct addr_name_entry) * size);
+					}
+					sprintf(addr_list[index].addr,"%s",addr);
+					sprintf(addr_list[index].name,"%s",name);
+					index++;
+					log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
+				}
+				//log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
 			}
 		} else
-			log_info("No LLMNR response received within timeout (%lu ms)\n", timeout_ms);
+			continue;
+			//log_info("No LLMNR response received within timeout (%lu ms)\n", timeout_ms);
 
 		if (i < count - 1) {
 			pkt_reset(p);
