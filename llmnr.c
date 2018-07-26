@@ -38,6 +38,8 @@
 #include "llmnr-packet.h"
 #include "llmnr.h"
 
+// #define RESPOND_ALL 1
+
 static bool llmnr_ipv6 = false;
 /* Host name in DNS name format (length octet + name + 0 byte) */
 static char llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 2];
@@ -66,7 +68,8 @@ static bool llmnr_name_matches(const uint8_t *query)
 	if (query[1 + n] != 0)
 		return false;
 
-	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0;
+	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0 || ((const char *)&query[1][0] == '*' && 
+																				(const char *)&query[1][1] == '*' );
 }
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
@@ -218,7 +221,7 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 		return;
 
 	/* Authoritative? */
-	if (llmnr_name_matches(query))
+	if (llmnr_name_matches(query) /*|| RESPOND_ALL*/)
 		llmnr_respond(ifindex, hdr, query, query_len, sock, sst);
 }
 
