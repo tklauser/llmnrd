@@ -43,7 +43,7 @@
 /* Maximum possible size RFC 4795, section 2.1 */
 static const size_t LLMNR_QUERY_PKT_BUF_SIZE = 9194;
 
-static const char *short_ops = "c:d:i:I:t:T:6ChV";
+static const char *short_ops = "c:d:i:I:t:T:6ChVR";
 static const struct option long_opts[] = {
 	{ "count",	required_argument,	NULL, 'c' },
 	{ "id",		required_argument,	NULL, 'd' },
@@ -183,7 +183,7 @@ int main(int argc, char **argv)
 		log_err("Query name too long\n");
 		return -1;
 	}
-
+again:
 	sock = socket(ipv6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		log_err("Failed to open UDP socket: %s\n", strerror(errno));
@@ -244,11 +244,12 @@ int main(int argc, char **argv)
 
 	p = pkt_alloc(LLMNR_QUERY_PKT_BUF_SIZE);
 	if(query_name[0] == '*' && query_name[1] == '*')
-		count = 99999; // just for Test
-	log_info("LLMNR query: %s IN %s\n", query_name, query_type(qtype));
+		;//count = 65538; // just for Test
+	if(runAlways <= 1)
+		log_info("LLMNR query: %s IN %s\n", query_name, query_type(qtype));
 
 	
-	for (i = 0; runAlways || i < count ; i++) {
+	for (i = 0; i < count ; i++) {
 		struct llmnr_hdr *hdr;
 		struct sockaddr_storage sst;
 		socklen_t sst_len;
@@ -426,10 +427,11 @@ int main(int argc, char **argv)
 				}
 				//log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
 			}
-		} else
+		} else{
+			index = 0;
+			log_info("No LLMNR response received within timeout (%lu ms)\n", timeout_ms);
 			continue;
-			//log_info("No LLMNR response received within timeout (%lu ms)\n", timeout_ms);
-
+		}
 		if (i < count - 1) {
 			pkt_reset(p);
 			usleep(interval_ms * 1000);
@@ -439,5 +441,13 @@ int main(int argc, char **argv)
 	pkt_free(p);
 err:
 	close(sock);
+
+	if(runAlways)
+	{
+		log_dbg("Rescaning ...\n");
+		runAlways++;
+		goto again;
+	}
+	log_info("Finished .. \n");
 	return 0;
 }
