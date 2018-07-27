@@ -357,8 +357,6 @@ int main(int argc, char **argv)
 					for(k = 0; k < index; ++k){
 						if(strcmp(addr,addr_list[k].addr) == 0){
 							flag = 1;
-							
-							//log_dbg("%s %s\n",addr,addr_list[i].addr);
 						}
 					}
 
@@ -372,7 +370,7 @@ int main(int argc, char **argv)
 						index++;
 						log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
 					}
-					//log_info("LLMNR response: %s IN %s %s (TTL %d)\n", name, query_type(type), addr, ttl);
+					
 				}
 			} else{
 				index = 0;

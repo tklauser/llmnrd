@@ -38,7 +38,6 @@
 #include "llmnr-packet.h"
 #include "llmnr.h"
 
-// #define RESPOND_ALL 1
 
 static bool llmnr_ipv6 = false;
 /* Host name in DNS name format (length octet + name + 0 byte) */
@@ -225,7 +224,7 @@ static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, si
 		return;
 
 	/* Authoritative? */
-	if (llmnr_name_matches(query) /*|| RESPOND_ALL*/)
+	if (llmnr_name_matches(query))
 		llmnr_respond(ifindex, hdr, query, query_len, sock, sst);
 }
 
