@@ -73,7 +73,8 @@ static void __noreturn usage_and_exit(int status)
 			"  -6, --ipv6            send queries over IPv6\n"
 			"  -C, --conflict        set conflict bit in query\n"
 			"  -h, --help            show this help and exit\n"
-			"  -V, --version         show version information and exit\n");
+			"  -V, --version         show version information and exit\n"
+			" \"\" scan for all hosts also for meaningful scan use with -R option or -c with amount of packet\n");
 	exit(status);
 }
 
@@ -188,14 +189,12 @@ int main(int argc, char **argv)
 	
 	
 
-	p = pkt_alloc(LLMNR_QUERY_PKT_BUF_SIZE);
-	if(query_name[0] == '*' && query_name[1] == '*')
-		count = 65538; // MAX IP
 	log_info("LLMNR query: %s IN %s\n", query_name, query_type(qtype));
 
 	do{
 		if((sock = init_socket(ipv6,TTL,iface)) == -1)
 			goto err;
+		p = pkt_alloc(LLMNR_QUERY_PKT_BUF_SIZE);	
 		for (i = 0; i < count ; i++) {
 			struct llmnr_hdr *hdr;
 			struct sockaddr_storage sst;
@@ -384,10 +383,11 @@ int main(int argc, char **argv)
 				usleep(interval_ms * 1000);
 			}
 		}
+		pkt_free(p);
 		close(sock);
 	}while(runAlways);
 
-	pkt_free(p);
+	
 	log_info("Finished .. \n");
 err:
 	close(sock);
