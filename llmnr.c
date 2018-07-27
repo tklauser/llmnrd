@@ -60,16 +60,20 @@ void llmnr_init(const char *hostname, bool ipv6)
 static bool llmnr_name_matches(const uint8_t *query)
 {
 	uint8_t n = llmnr_hostname[0];
-
+	
+	/*if requested ** that means response me everybody */
+	if(((const char *)&query[1])[0] == '*' && ((const char *)&query[1])[1] == '*' ){
+		return true;
+	}
+	
 	/* length */
 	if (query[0] != n)
 		return false;
 	/* NULL byte */
 	if (query[1 + n] != 0)
 		return false;
-
-	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0 || (((const char *)&query[1])[0] == '*' && 
-																				((const char *)&query[1])[1] == '*' );
+	
+	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0 ;
 }
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
