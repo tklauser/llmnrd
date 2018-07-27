@@ -353,7 +353,8 @@ int main(int argc, char **argv)
 					
 					//add or not to hosts lists
 					flag = 0;
-					for(int k = 0; k < index; ++k){
+					int k;
+					for(k = 0; k < index; ++k){
 						if(strcmp(addr,addr_list[k].addr) == 0){
 							flag = 1;
 							
