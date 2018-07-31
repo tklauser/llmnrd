@@ -39,7 +39,7 @@
 #include "log.h"
 #include "pkt.h"
 
-#define MAXIP 16 //xxx.xxx.xxx.xxx
+#define MAXIP INET6_ADDRSTRLEN + 1 //xxx.xxx.xxx.xxx
 /* Maximum possible size RFC 4795, section 2.1 */
 static const size_t LLMNR_QUERY_PKT_BUF_SIZE = 9194;
 
@@ -74,7 +74,7 @@ static void __noreturn usage_and_exit(int status)
 			"  -C, --conflict        set conflict bit in query\n"
 			"  -h, --help            show this help and exit\n"
 			"  -V, --version         show version information and exit\n"
-			" \"\" scan for all hosts also for meaningful scan use with -R option or -c with amount of packet\n");
+			"\"*\" scan for all hosts also for meaningful scan use with -R option or -c with amount of packet\n");
 	exit(status);
 }
 
@@ -227,7 +227,6 @@ int main(int argc, char **argv)
 			memset(&iov, 0, sizeof(iov));
 			memset(&msg, 0, sizeof(msg));
 			memset(&ipi6, 0, sizeof(ipi6));
-
 			if (ipv6) {
 				struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&sst;
 				struct cmsghdr *cmsg;
@@ -278,7 +277,7 @@ int main(int argc, char **argv)
 			tv.tv_sec = timeout_ms / 1000;
 			tv.tv_usec = (timeout_ms % 1000) * 1000;
 
-			ret = select(sock + 1, &rfds, NULL, NULL, &tv);
+			ret = select(sock + 1, &rfds, NULL, NULL, &tv);		
 			if (ret < 0) {
 				log_err("Failed to select() on socket: %s\n", strerror(errno));
 				break;
@@ -311,7 +310,7 @@ int main(int argc, char **argv)
 					uint16_t type, clss, addr_size;
 					uint32_t ttl;
 					char name[LLMNR_LABEL_MAX_SIZE + 1];
-					int af;
+					int af,k;
 
 					/* compression? */
 					if (nl & 0xC0) {
@@ -330,9 +329,10 @@ int main(int argc, char **argv)
 					type = htons(pkt_put_extract_u16(p));
 					clss = htons(pkt_put_extract_u16(p));
 
-					if (clss != LLMNR_CLASS_IN)
+					if (clss != LLMNR_CLASS_IN){
+						log_warn("Unexpected response class received: %d\n", clss);
 						break;					
-						//log_warn("Unexpected response class received: %d\n", clss);
+					}
 
 					ttl = htonl(pkt_put_extract_u32(p));
 					addr_size = htons(pkt_put_extract_u16(p));
@@ -342,7 +342,7 @@ int main(int argc, char **argv)
 					} else if (addr_size == sizeof(struct in6_addr)) {
 						af = AF_INET6;
 					} else {
-						//log_warn("Unexpected address size received: %d\n", addr_size);
+						log_warn("Unexpected address size received: %d\n", addr_size);
 						break;
 					}
 
@@ -353,7 +353,7 @@ int main(int argc, char **argv)
 					
 					//add or not to hosts lists
 					flag = 0;
-					int k;
+					
 					for(k = 0; k < index; ++k){
 						if(strcmp(addr,addr_list[k].addr) == 0){
 							flag = 1;
@@ -419,7 +419,7 @@ int init_socket(bool ipv6,int TTL,const char * iface){
 			log_err("Failed to set IPv4 unicast TTL socket option: %s\n", strerror(errno));
 			return -1;
 		}
-
+		
 		if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &TTL, sizeof(TTL)) < 0) {
 			log_err("Failed to set IPv4 multicast TTL socket option: %s\n", strerror(errno));
 			return -1;

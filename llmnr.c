@@ -61,7 +61,7 @@ static bool llmnr_name_matches(const uint8_t *query)
 	uint8_t n = llmnr_hostname[0];
 	
 	/*if requested ** that means response me everybody */
-	if(((const char *)&query[1])[0] == '*' && ((const char *)&query[1])[1] == '*' ){
+	if(((const char *)&query[1])[0] == '*' && 1 == query[0] ){
 		return true;
 	}
 	
