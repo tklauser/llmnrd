@@ -161,6 +161,8 @@ int main(int argc, char **argv)
 	int llmnrd_sock_rtnl = -1;
 	int nfds;
 
+	setlinebuf(stdout);
+
 	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
 		switch (c) {
 		case 'd':
