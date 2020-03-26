@@ -36,7 +36,7 @@
 static const int YES = 1;
 static const int TTL = 255;
 
-static int socket_bind_to_device(int sock, const char *iface) {
+static void socket_bind_to_device(int sock, const char *iface) {
 #ifdef SO_BINDTODEVICE
 	/* bind socket to specific interface */
 	if (iface) {
@@ -45,12 +45,10 @@ static int socket_bind_to_device(int sock, const char *iface) {
 		memset(&ifr, 0, sizeof(ifr));
 		strncpy(ifr.ifr_name, iface, sizeof(ifr.ifr_name) - 1);
 		if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
-			log_err("Failed to bind socket to device %s: %s\n", iface, strerror(errno));
-			return -1;
+			log_warn("Failed to bind socket to device %s: %s\n", iface, strerror(errno));
 		}
 	}
 #endif
-	return 0;
 }
 
 int socket_open_ipv4(uint16_t port, const char *iface)
@@ -81,8 +79,7 @@ int socket_open_ipv4(uint16_t port, const char *iface)
 		goto err;
 	}
 
-	if (socket_bind_to_device(sock, iface) < 0)
-		goto err;
+	socket_bind_to_device(sock, iface);
 
 	/* bind the socket */
 	memset(&sa, 0, sizeof(sa));
@@ -140,8 +137,7 @@ int socket_open_ipv6(uint16_t port, const char *iface)
 		goto err;
 	}
 
-	if (socket_bind_to_device(sock, iface) < 0)
-		goto err;
+	socket_bind_to_device(sock, iface);
 
 	/* bind the socket */
 	memset(&sa, 0, sizeof(sa));

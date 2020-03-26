@@ -236,7 +236,10 @@ int main(int argc, char **argv)
 		goto out;
 
 	llmnr_init(hostname, ipv6);
-	iface_init(llmnrd_sock_rtnl, iface, ipv6, &iface_event_handle);
+
+	ret = iface_init(llmnrd_sock_rtnl, iface, ipv6, &iface_event_handle);
+	if (ret < 0)
+		goto out;
 
 	nfds = max(llmnrd_sock_ipv4, llmnrd_sock_rtnl);
 	if (llmnrd_sock_ipv6 >= 0)
