@@ -319,18 +319,24 @@ static void iface_rtnl_enumerate(int sock, uint16_t type, unsigned char family)
 		log_err("Failed to enumerate rtnl interfaces: %s\n", strerror(errno));
 }
 
-void iface_init(int sock, const char *iface, bool ipv6,
+int iface_init(int sock, const char *iface, bool ipv6,
 		iface_event_handler_t event_handler)
 {
 	INIT_LIST_HEAD(&iface_list_head);
 	iface_event_handler = event_handler;
-	if (iface)
+	if (iface) {
 		iface_ifindex = if_nametoindex(iface);
+		if (!iface_ifindex) {
+			log_err("Interface %s not found: %s\n", iface, strerror(errno));
+			return -1;
+		}
+	}
 
 	/* send RTM_GETADDR request to initially populate the interface list */
 	iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET);
 	if (ipv6)
 		iface_rtnl_enumerate(sock, RTM_GETADDR, AF_INET6);
+	return 0;
 }
 
 int iface_recv(int sock)
