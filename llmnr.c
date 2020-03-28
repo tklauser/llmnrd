@@ -188,7 +188,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	pkt_free(p);
 }
 
-static void llmnr_packet_process(unsigned int ifindex, const uint8_t *pktbuf, size_t len,
+static void llmnr_packet_process(int ifindex, const uint8_t *pktbuf, size_t len,
 				 int sock, const struct sockaddr_storage *sst)
 {
 	const struct llmnr_hdr *hdr = (const struct llmnr_hdr *)pktbuf;
