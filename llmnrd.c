@@ -49,13 +49,14 @@ static int llmnrd_sock_ipv4 = -1;
 static int llmnrd_sock_ipv6 = -1;
 static int llmnrd_fd_hostname = -1;
 
-static const char *short_opts = "H:i:p:6dhV";
+static const char *short_opts = "H:i:p:6dshV";
 static const struct option long_opts[] = {
 	{ "hostname",	required_argument,	NULL, 'H' },
 	{ "interface",  required_argument,	NULL, 'i' },
 	{ "port",	required_argument,	NULL, 'p' },
 	{ "ipv6",	no_argument,		NULL, '6' },
 	{ "daemonize",	no_argument,		NULL, 'd' },
+	{ "syslog",	no_argument,		NULL, 's' },
 	{ "help",	no_argument,		NULL, 'h' },
 	{ "version",	no_argument,		NULL, 'V' },
 	{ NULL,		0,			NULL, 0 },
@@ -70,6 +71,7 @@ static void __noreturn usage_and_exit(int status)
 			"  -p, --port NUM       set port number to listen on (default: %d)\n"
 			"  -6, --ipv6           enable LLMNR name resolution over IPv6\n"
 			"  -d, --daemonize      run as daemon in the background\n"
+			"  -s, --syslog         send all log output to syslog\n"
 			"  -h, --help           show this help and exit\n"
 			"  -V, --version        show version information and exit\n",
 			LLMNR_UDP_PORT);
@@ -166,6 +168,10 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 'd':
 			daemonize = true;
+			break;
+		case 's':
+			openlog("llmnrd", LOG_PID, LOG_DAEMON);
+			log_to_syslog();
 			break;
 		case 'H':
 			hostname = xstrdup(optarg);
