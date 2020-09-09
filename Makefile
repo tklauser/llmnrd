@@ -6,13 +6,13 @@ VERSION = 0.6
 
 # llmnrd binary
 D_P 	= llmnrd
-D_OBJS	= llmnr.o iface.o socket.o util.o llmnrd.o
+D_OBJS	= llmnr.o iface.o socket.o util.o log.o llmnrd.o
 D_LIBS	=
 D_MAN	= $(D_P).8
 
 # llmnr-query binary
 Q_P 	= llmnr-query
-Q_OBJS	= util.o llmnr-query.o
+Q_OBJS	= util.o log.o llmnr-query.o
 Q_LIBS	=
 Q_MAN	= $(Q_P).1
 

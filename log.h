@@ -20,12 +20,19 @@
 #define LOG_H
 
 #include <stdio.h>
+#include <syslog.h>
 
-#define log_err(fmt, args...)	fprintf(stderr, "Error: " fmt, ##args)
-#define log_warn(fmt, args...)	fprintf(stderr, "Warning: " fmt, ##args)
-#define log_info(fmt, args...)	fprintf(stdout, fmt, ##args)
+#include "compiler.h"
+
+void log_lvl(int lvl, const char *fmt, ...) __check_format_printf(2, 3);
+
+void log_to_syslog(void);
+
+#define log_err(fmt, args...)	log_lvl(LOG_ERR, fmt, ##args)
+#define log_warn(fmt, args...)	log_lvl(LOG_WARNING, fmt, ##args)
+#define log_info(fmt, args...)	log_lvl(LOG_INFO, fmt, ##args)
 #ifdef DEBUG
-# define log_dbg(fmt, args...)	fprintf(stdout, fmt, ##args)
+# define log_dbg(fmt, args...)	log_lvl(LOG_DEBUG, fmt, ##args)
 #else
 # define log_dbg(fmt, args...)
 #endif
