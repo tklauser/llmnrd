@@ -91,7 +91,6 @@ static void signal_handler(int sig)
 	case SIGINT:
 	case SIGQUIT:
 	case SIGTERM:
-		log_info("Interrupt received. Stopping llmnrd.\n");
 		llmnrd_running = false;
 		break;
 	case SIGHUP:
@@ -280,6 +279,8 @@ int main(int argc, char **argv)
 				hostname_change_handle(hostname, MAXHOSTNAMELEN);
 		}
 	}
+
+	log_info("Signal received. Stopping llmnrd.\n");
 
 	ret = 0;
 out:
