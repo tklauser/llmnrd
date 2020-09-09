@@ -29,7 +29,9 @@ else
   GIT_VERSION =
 endif
 
-CFLAGS_MIN := -W -Wall -DVERSION_STRING=\"v$(VERSION)\" -DGIT_VERSION=\"$(GIT_VERSION)\"
+PIDFILE ?= /run/llmnrd/pid
+
+CFLAGS_MIN := -W -Wall -DVERSION_STRING=\"v$(VERSION)\" -DGIT_VERSION=\"$(GIT_VERSION)\" -DPIDFILE=\"$(PIDFILE)\"
 ifeq ($(DEBUG), 1)
   CFLAGS_MIN += -g -DDEBUG
 endif
