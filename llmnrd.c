@@ -151,6 +151,37 @@ static void hostname_change_handle(char *hostname, size_t maxlen)
 	free(newname);
 }
 
+static bool write_pid_file(void)
+{
+	int fd;
+	char buf[64];
+	ssize_t len;
+
+	fd = open(PIDFILE, O_CREAT|O_EXCL|O_RDWR, 0644);
+	if (fd == -1) {
+		log_err("Failed to open pid file %s: %s", PIDFILE, strerror(errno));
+		return false;
+	}
+
+	if (snprintf(buf, sizeof(buf), "%ji\n", (intmax_t) getpid()) < 0)
+		goto err;
+
+	len = strlen(buf);
+	if (write(fd, buf, len) != len)
+		goto err;
+
+	close(fd);
+	return true;
+
+err:
+	log_err("Failed to write pid to %s", PIDFILE);
+	if (fd != -1) {
+		unlink(PIDFILE);
+		close(fd);
+	}
+	return false;
+}
+
 int main(int argc, char **argv)
 {
 	int c, ret = -1;
@@ -160,6 +191,7 @@ int main(int argc, char **argv)
 	char *iface = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 	int llmnrd_sock_rtnl = -1;
+	bool rm_pid_file = false;
 	int nfds;
 
 	setlinebuf(stdout);
@@ -220,6 +252,9 @@ int main(int argc, char **argv)
 			log_err("Failed to daemonize process: %s\n", strerror(errno));
 			goto out;
 		}
+		if (!write_pid_file())
+			goto out;
+		rm_pid_file = true;
 	}
 
 	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
@@ -298,5 +333,7 @@ out:
 	if (llmnrd_sock_ipv4 >= 0)
 		close(llmnrd_sock_ipv4);
 	free(hostname);
+	if (rm_pid_file)
+		unlink(PIDFILE);
 	return ret == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
