@@ -262,9 +262,10 @@ int main(int argc, char **argv)
 
 		ret = select(nfds, &rfds, NULL, &efds, NULL);
 		if (ret < 0) {
-			if (errno != EINTR)
+			if (errno != EINTR) {
 				log_err("Failed to select() on socket: %s\n", strerror(errno));
-			goto out;
+				goto out;
+			}
 		} else if (ret) {
 			/* handle RTNL messages first so we can respond with
 			 * up-to-date information.
