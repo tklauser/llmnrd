@@ -1,0 +1,172 @@
+#!/bin/sh
+#
+# License: Copyright 2020 SpinetiX. This file is licensed
+#          under the terms of the GNU General Public License version 2.
+#          This program is licensed "as is" without any warranty of any
+#          kind, whether express or implied.
+#
+# Copyright 1999-2003 MontaVista Software, Inc.
+# Copyright 2002, 2003, 2004 Sony Corporation
+# Copyright 2002, 2003, 2004 Matsushita Electric Industrial Co., Ltd.
+#
+### BEGIN INIT INFO
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start: 2 3 5
+# Default-Stop:
+# Short-Description: Starting/stopping llmnrd
+# Description: Starting/stopping llmnrd
+### END INIT INFO
+
+# Init script information
+NAME=llmnrd
+DESC="llmnrd"
+
+# Individual Daemon information
+DAEMON=/usr/sbin/llmnrd
+ARGS="-6 -d -s"
+BASENAME=llmnrd
+
+# Load init script configuration
+DISABLE_LLMNRD=
+[ -f /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Source the init script functions
+. /etc/init.d/functions
+
+# Verify daemons are installed
+if [ ! -x $DAEMON -a "$1" != "stop" ]; then
+    echo -n "Not starting $DESC $NAME, $DAEMON not installed"
+    echo
+    exit 0
+fi
+
+if [ -n "$DISABLE_LLMNRD" -a "$1" != "stop" ]; then
+    echo -n "Not starting $DESC $NAME, disabled via /etc/default/$NAME"
+    echo
+    exit 0
+fi
+
+start() {
+    local RET
+
+    echo -n "Starting $DESC: "
+
+    echo -n "$NAME "
+
+    start-stop-daemon --start -u llmnrd -n llmnrd -p /run/llmnrd/pid -c llmnrd -x $DAEMON -- $ARGS
+    RET=$?
+    if [ $RET -eq 0 ]; then
+        success; echo
+    else
+        failure; echo
+        return 1
+    fi
+        
+    return 0
+}
+
+stop () {
+    local RET
+
+    echo -n "Stopping $DESC: $NAME "
+    start-stop-daemon --stop -u llmnrd -n llmnrd -p /run/llmnrd/pid -q
+    RET=$?
+    if [ $RET -eq 0 ]; then
+        success; echo
+    else
+        failure; echo
+        return 1
+    fi
+
+    return 0
+}
+
+restart() {
+    local RET
+
+    echo "Restarting $DESC..."
+    stop
+    start
+    RET=$?
+
+    return $RET
+}
+
+condrestart() {
+    local RET
+
+    pidofproc $BASENAME >/dev/null
+    RET=$?
+    if [ $RET -eq 0 ]; then
+        restart
+        RET=$?
+    else
+        RET=1
+    fi
+
+    return $RET
+}
+
+reload() {
+    local RET pid
+
+    # llmnrd has no support for HUP, so just restart
+    condrestart
+}
+
+forcereload() {
+    local RET
+
+    reload
+    RET=$?
+    if [ $RET -ne 0 ]; then
+        restart
+        RET=$?
+    fi
+
+    return $RET
+}
+
+parse() {
+    case "$1" in
+        start)
+            start
+            return $?
+            ;;
+        stop)
+            stop
+            return $?
+            ;;
+        restart)
+            restart
+            return $?
+            ;;
+        condrestart|try-restart)
+            condrestart
+            return $?
+            ;;
+        reload)
+            reload
+            return $?
+            ;;
+        force-reload)
+            forcereload
+            return $?
+            ;;
+        status)
+            status $BASENAME
+            return $?
+            ;;
+        *)
+            echo "Usage: $NAME " \
+                "{start|stop|restart|condrestart|reload|force-reload|status}" >&2
+            ;;
+    esac
+
+    return 1
+}
+
+parse $@
