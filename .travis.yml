@@ -3,6 +3,9 @@ env:
    - secure: "i19+oa1wcShVfnMYNDF3kWxAbCER/ThHIiF/blHCuANtbd1SGpEZhMZJ+V4B6XnhRoAGUlrXxwdJ9TZWtG32wGepbMrEdyCxVMwoo8uNokkyWcAbV7z3KD8tjnOA7W/CDAAx6gy9BgX8T0cWK4zK5OwzWAFvz2rJ4UHhx/iX/sM="
 
 language: c
+arch:
+    - amd64
+    - ppc64le
 compiler:
   - gcc
   - clang
