@@ -187,7 +187,8 @@ int main(int argc, char **argv)
 	int c, ret = -1;
 	long num_arg;
 	bool daemonize = false, ipv6 = false;
-	char *hostname = NULL;
+	char **hostnames = NULL;
+	int name_count = 0, name_i = 0;
 	char *iface = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 	int llmnrd_sock_rtnl = -1;
@@ -196,6 +197,17 @@ int main(int argc, char **argv)
 
 	setlinebuf(stdout);
 
+	/* First count given (host)names, if any, to allocate memory */
+	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
+		if (c == 'H')
+			++name_count;
+	}
+
+	if (!name_count)
+		name_count = 1;
+	hostnames = xzalloc(name_count);
+
+	optind = 1;
 	while ((c = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
 		switch (c) {
 		case 'd':
@@ -206,7 +218,8 @@ int main(int argc, char **argv)
 			log_to_syslog();
 			break;
 		case 'H':
-			hostname = xstrdup(optarg);
+			hostnames[name_i] = xstrdup(optarg);
+			++name_i;
 			break;
 		case 'i':
 			iface = xstrdup(optarg);
@@ -236,13 +249,13 @@ int main(int argc, char **argv)
 	register_signal(SIGTERM, signal_handler);
 	register_signal(SIGHUP, signal_handler);
 
-	if (!hostname) {
-		hostname = xzalloc(MAXHOSTNAMELEN);
-		if (gethostname(hostname, MAXHOSTNAMELEN) != 0) {
+	if (name_i == 0) {
+		hostnames[0] = xzalloc(MAXHOSTNAMELEN);
+		if (gethostname(hostnames[0], MAXHOSTNAMELEN) != 0) {
 			log_err("Failed to get hostname");
 			return EXIT_FAILURE;
 		}
-		hostname[MAXHOSTNAMELEN - 1] = '\0';
+		hostnames[0][MAXHOSTNAMELEN - 1] = '\0';
 
 		llmnrd_fd_hostname = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY);
 	}
@@ -257,7 +270,11 @@ int main(int argc, char **argv)
 		rm_pid_file = true;
 	}
 
-	log_info("Starting llmnrd on port %u, hostname %s\n", port, hostname);
+	log_info("Starting llmnrd on port %u, hostname(s): ", port);
+    for(name_i = 0; name_i < name_count; ++name_i)
+        log_info("%s ", hostnames[name_i]);
+    log_info("\n");
+
 	if (iface)
 		log_info("Binding to interface %s\n", iface);
 
@@ -275,7 +292,7 @@ int main(int argc, char **argv)
 	if (llmnrd_sock_rtnl < 0)
 		goto out;
 
-	llmnr_init(hostname, ipv6);
+	llmnr_init((const char **) hostnames, name_count, ipv6);
 
 	ret = iface_init(llmnrd_sock_rtnl, iface, ipv6, &iface_event_handle);
 	if (ret < 0)
@@ -318,7 +335,7 @@ int main(int argc, char **argv)
 			if (llmnrd_sock_ipv6 >= 0 && FD_ISSET(llmnrd_sock_ipv6, &rfds))
 				llmnr_recv(llmnrd_sock_ipv6);
 			if (llmnrd_fd_hostname >= 0 && FD_ISSET(llmnrd_fd_hostname, &efds))
-				hostname_change_handle(hostname, MAXHOSTNAMELEN);
+				hostname_change_handle(hostnames[0], MAXHOSTNAMELEN);
 		}
 	}
 
@@ -332,7 +349,11 @@ out:
 		close(llmnrd_sock_ipv6);
 	if (llmnrd_sock_ipv4 >= 0)
 		close(llmnrd_sock_ipv4);
-	free(hostname);
+	for(name_i = 0; name_i < name_count; ++name_i) {
+		free(hostnames[name_i]);
+	}
+	free(hostnames);
+	llmnr_release();
 	if (rm_pid_file)
 		unlink(PIDFILE);
 	return ret == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

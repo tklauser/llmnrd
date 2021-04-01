@@ -40,38 +40,73 @@
 
 static bool llmnr_ipv6 = false;
 /* Host name in DNS name format (length octet + name + 0 byte) */
-static char llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 2];
+#define LLMNR_LABEL_LEN (LLMNR_LABEL_MAX_SIZE + 2)
+static char** llmnr_hostnames = NULL;
+int llmnr_hostname_count = 0;
+
+static void set_hostname(int entry_index, const char *hostname)
+{
+	char* entry_llmnr_hostname = NULL;
+
+	llmnr_hostnames[entry_index] = xzalloc(LLMNR_LABEL_LEN);
+	entry_llmnr_hostname = llmnr_hostnames[entry_index];
+
+	entry_llmnr_hostname[0] = strlen(hostname);
+	strncpy(&entry_llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
+	entry_llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
+}
 
 void llmnr_set_hostname(const char *hostname)
 {
-	llmnr_hostname[0] = strlen(hostname);
-	strncpy(&llmnr_hostname[1], hostname, LLMNR_LABEL_MAX_SIZE);
-	llmnr_hostname[LLMNR_LABEL_MAX_SIZE + 1] = '\0';
+	set_hostname(0, hostname);
 }
 
-void llmnr_init(const char *hostname, bool ipv6)
+void llmnr_init(const char *hostnames[], int hostname_count, bool ipv6)
 {
-	llmnr_set_hostname(hostname);
+	int name_i = 0;
+	llmnr_hostname_count = hostname_count;
+	llmnr_hostnames = xzalloc(hostname_count);
+	for (;name_i < hostname_count; ++name_i) {
+		set_hostname(name_i, hostnames[name_i]);
+	}
 	llmnr_ipv6 = ipv6;
 }
 
-static bool llmnr_name_matches(const uint8_t *query)
+void llmnr_release() {
+	int name_i = 0;
+	for(; name_i < llmnr_hostname_count; ++name_i) {
+		free(llmnr_hostnames[name_i]);
+	}
+	free(llmnr_hostnames);
+}
+
+/* Return the matched name entry (first byte represents the string length) or NULL */
+static char* llmnr_name_matches(const uint8_t *query)
 {
-	uint8_t n = llmnr_hostname[0];
+    uint8_t n;
+    int name_i = 0;
 
-	/* length */
-	if (query[0] != n)
-		return false;
-	/* NULL byte */
-	if (query[1 + n] != 0)
-		return false;
+    for(; name_i < llmnr_hostname_count; ++name_i) {
+        n = llmnr_hostnames[name_i][0];
 
-	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0;
+        /* length */
+        if (query[0] != n)
+            continue;
+        /* NULL byte */
+        if (query[1 + n] != 0)
+            continue;
+
+        if (strncasecmp((const char *)&query[1], &llmnr_hostnames[name_i][1], n) == 0)
+            return llmnr_hostnames[name_i];
+    }
+
+
+	return NULL;
 }
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 			  const uint8_t *query, size_t query_len, int sock,
-			  const struct sockaddr_storage *sst)
+			  const struct sockaddr_storage *sst, char* matched_hostname_entry)
 {
 	uint16_t qtype, qclass;
 	uint8_t name_len = query[0];
@@ -164,7 +199,7 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 
 		/* NAME */
 		if (i == 0)
-			memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
+			memcpy(pkt_put(p, matched_hostname_entry[0] + 2), matched_hostname_entry, matched_hostname_entry[0] + 2);
 		else {
 			/* message compression (RFC 1035, section 4.1.3) */
 			uint16_t ptr = 0xC000 | (sizeof(*hdr) + query_len);
@@ -196,6 +231,7 @@ static void llmnr_packet_process(int ifindex, const uint8_t *pktbuf, size_t len,
 	const uint8_t *query;
 	size_t query_len;
 	uint8_t name_len;
+    char* matched_hostname_entry;
 
 	/* Query too short? */
 	if (len < sizeof(struct llmnr_hdr))
@@ -218,8 +254,9 @@ static void llmnr_packet_process(int ifindex, const uint8_t *pktbuf, size_t len,
 		return;
 
 	/* Authoritative? */
-	if (llmnr_name_matches(query))
-		llmnr_respond(ifindex, hdr, query, query_len, sock, sst);
+	matched_hostname_entry = llmnr_name_matches(query);
+	if (matched_hostname_entry)
+		llmnr_respond(ifindex, hdr, query, query_len, sock, sst, matched_hostname_entry);
 }
 
 void llmnr_recv(int sock)
