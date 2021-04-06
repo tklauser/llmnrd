@@ -47,7 +47,6 @@
 static bool llmnrd_running = true;
 static int llmnrd_sock_ipv4 = -1;
 static int llmnrd_sock_ipv6 = -1;
-static int llmnrd_fd_hostname = -1;
 
 static const char *short_opts = "H:i:p:6dshV";
 static const struct option long_opts[] = {
@@ -191,6 +190,7 @@ int main(int argc, char **argv)
 	char *iface = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 	int llmnrd_sock_rtnl = -1;
+	int llmnrd_fd_hostname = -1;
 	bool rm_pid_file = false;
 	int nfds;
 
