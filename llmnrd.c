@@ -188,7 +188,7 @@ int main(int argc, char **argv)
 	long num_arg;
 	bool daemonize = false, ipv6 = false;
 	char **hostnames = NULL;
-	int name_count = 0, name_i = 0;
+	size_t name_count = 0, name_i = 0;
 	char *iface = NULL;
 	uint16_t port = LLMNR_UDP_PORT;
 	int llmnrd_sock_rtnl = -1;
@@ -270,10 +270,10 @@ int main(int argc, char **argv)
 		rm_pid_file = true;
 	}
 
-	log_info("Starting llmnrd on port %u, hostname(s): ", port);
-    for(name_i = 0; name_i < name_count; ++name_i)
-        log_info("%s ", hostnames[name_i]);
-    log_info("\n");
+	log_info("Starting llmnrd on port %u. Assigned hostname(s):\n", port);
+
+	for(name_i = 0; name_i < name_count; ++name_i)
+		log_info("%s\n", hostnames[name_i]);
 
 	if (iface)
 		log_info("Binding to interface %s\n", iface);
