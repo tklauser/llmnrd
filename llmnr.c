@@ -194,7 +194,6 @@ static int llmnr_name_matches(int ifindex, const uint8_t *query)
 		}
 	}
 
-
 	n = llmnr_hostname[0];
 	if (query[0] == n && query[1 + n] == 0 && strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0)
 		return MATCH_NAME;
