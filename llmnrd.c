@@ -48,8 +48,9 @@ static bool llmnrd_running = true;
 static int llmnrd_sock_ipv4 = -1;
 static int llmnrd_sock_ipv6 = -1;
 
-static const char *short_opts = "H:i:p:6dshV";
+static const char *short_opts = "a:H:i:p:6dshV";
 static const struct option long_opts[] = {
+	{ "alias",	required_argument,	NULL, 'a' },
 	{ "hostname",	required_argument,	NULL, 'H' },
 	{ "interface",  required_argument,	NULL, 'i' },
 	{ "port",	required_argument,	NULL, 'p' },
@@ -66,6 +67,7 @@ static void __noreturn usage_and_exit(int status)
 	fprintf(stdout, "Usage: llmnrd [OPTIONS]\n"
 			"Options:\n"
 			"  -H, --hostname NAME  set hostname to respond with (default: system hostname)\n"
+			"  -a, --alias NAME     add NAME as alias, can be given multiple times\n"
 			"  -i, --interface DEV  bind socket to a specific interface, e.g. eth0\n"
 			"  -p, --port NUM       set port number to listen on (default: %d)\n"
 			"  -6, --ipv6           enable LLMNR name resolution over IPv6\n"
@@ -204,6 +206,9 @@ int main(int argc, char **argv)
 		case 's':
 			openlog("llmnrd", LOG_PID, LOG_DAEMON);
 			log_to_syslog();
+			break;
+		case 'a':
+			llmnr_add_alias(optarg);
 			break;
 		case 'H':
 			hostname = xstrdup(optarg);
