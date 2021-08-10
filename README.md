@@ -94,6 +94,9 @@ Contributors
 
 llmnrd is authored and maintained by Tobias Klauser <tklauser@distanz.ch>
 
+This is a branch maintained by Mario Klebsch <mario.klebsch@ime-actia.de>
+adding support for reverse lookup and CNAME records.
+
 The following people contributed patches and ideas, found and reported bugs or
 otherwise helped in the development of llmnrd:
 
@@ -105,6 +108,7 @@ otherwise helped in the development of llmnrd:
 * @Schimmelreiter
 * @svimik
 * @tbetker
+* Mario Klebsch
 
 Thanks a lot!
 
