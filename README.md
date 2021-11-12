@@ -1,5 +1,6 @@
 # llmnrd - Link-Local Multicast Resolution Daemon
 
+[![GitHub Action Status](https://github.com/tklauser/llmnrd/workflows/Build/badge.svg)](https://github.com/tklauser/llmnrd/actions?query=workflow%3Abuild)
 [![Coverity Status](https://scan.coverity.com/projects/8697/badge.svg)](https://scan.coverity.com/projects/tklauser-llmnrd)
 
 llmnrd is a daemon implementing the Link-Local Multicast Name Resolution (LLMNR)
