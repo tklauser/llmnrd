@@ -22,6 +22,7 @@
 #include <stdbool.h>
 
 void llmnr_set_hostname(const char *hostname);
+void llmnr_add_alias(const char *alias);
 void llmnr_init(const char *hostname, bool ipv6);
 void llmnr_recv(int sock);
 

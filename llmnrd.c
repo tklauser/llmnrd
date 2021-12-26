@@ -63,7 +63,7 @@ static const struct option long_opts[] = {
 
 static void __noreturn usage_and_exit(int status)
 {
-	fprintf(stdout, "Usage: llmnrd [OPTIONS]\n"
+	fprintf(stdout, "Usage: llmnrd [OPTIONS] [ <alias>... ]\n"
 			"Options:\n"
 			"  -H, --hostname NAME  set hostname to respond with (default: system hostname)\n"
 			"  -i, --interface DEV  bind socket to a specific interface, e.g. eth0\n"
@@ -72,7 +72,9 @@ static void __noreturn usage_and_exit(int status)
 			"  -d, --daemonize      run as daemon in the background\n"
 			"  -s, --syslog         send all log output to syslog\n"
 			"  -h, --help           show this help and exit\n"
-			"  -V, --version        show version information and exit\n",
+			"  -V, --version        show version information and exit\n"
+			"\n"
+			" <alias>               Add an alias (CNAME record)\n",
 			LLMNR_UDP_PORT);
 	exit(status);
 }
@@ -230,6 +232,9 @@ int main(int argc, char **argv)
 			usage_and_exit(EXIT_FAILURE);
 		}
 	}
+
+	for (c=1; c < argc; c++)
+		llmnr_add_alias(argv[c]);
 
 	register_signal(SIGINT, signal_handler);
 	register_signal(SIGQUIT, signal_handler);

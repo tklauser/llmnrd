@@ -55,28 +55,167 @@ void llmnr_init(const char *hostname, bool ipv6)
 	llmnr_ipv6 = ipv6;
 }
 
-static bool llmnr_name_matches(const uint8_t *query)
+struct llmnr_alias_t 
 {
-	uint8_t n = llmnr_hostname[0];
+	struct llmnr_alias_t * next;
+	char                   name[2]; // allocate additional space, always need len prefix and terminating \0.
+};
 
-	/* length */
-	if (query[0] != n)
-		return false;
-	/* NULL byte */
-	if (query[1 + n] != 0)
-		return false;
+static struct llmnr_alias_t *llmnr_aliases = NULL;
 
-	return strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0;
+void llmnr_add_alias(const char *alias)
+{
+	struct llmnr_alias_t *a = (struct llmnr_alias_t*)malloc(sizeof(*a)+strlen(alias));
+	if (!a)
+		return;
+	a->name[0] = strlen(alias);
+	strcpy(&a->name[1], alias);
+	a->next = llmnr_aliases;
+	llmnr_aliases = a;
+}
+
+
+static size_t get_dns_name_length(const uint8_t *query, size_t query_len)
+{
+	size_t ret = 0;
+	while (ret+1 < query_len) {
+		uint8_t len = query[ret];
+		if (len > LLMNR_LABEL_MAX_SIZE)
+			return 0;
+		if (!len)
+			return ret+1;
+		ret += 1+len;
+	}
+	return 0;
+}
+
+static int dns_is_reverse_query(const uint8_t *query)
+{
+	size_t len = strlen((const char*)query);
+	uint16_t query_type;
+	uint16_t query_class;
+
+	// check wether query ends on ".arpa"
+	if (len < 5 || query[len-5]!= 4 || strcasecmp((const char*)&query[len-4], "arpa") != 0)
+		return 0;
+
+	memcpy(&query_type,  &query[len+1], 2);
+	memcpy(&query_class, &query[len+3], 2);
+
+	if (query_class != htons(LLMNR_CLASS_IN))
+		return 0;
+
+	if ( query_type != htons(LLMNR_TYPE_PTR)  && 
+	     query_type != htons(LLMNR_QTYPE_ANY)    )
+		return 0;
+
+	// check wether query ends on ".in-addr.arpa"
+	if (len > 13 && query[len-13]==7 && strncasecmp( (const char*)&query[len-12], "in-addr", 7) ==0)
+		return AF_INET;
+
+	// check wether query ends on ".ip6.arpa"
+	if (len == 73 && query[len-9]==3 && strncasecmp((const char*) &query[len-8], "ip6", 3) ==0)
+		return AF_INET6;
+
+	return 0;
+}
+
+#define MATCH_NAME  1
+#define MATCH_ALIAS 2
+#define MATCH_ADDR  3
+
+static int llmnr_name_matches(int ifindex, const uint8_t *query)
+{
+	struct llmnr_alias_t *a;
+	uint8_t n;
+
+	int af = dns_is_reverse_query(query);
+	
+	if (af) {
+		int i;
+		unsigned x;
+		char buffer[4];
+		uint8_t query_addr[16];
+		struct sockaddr_storage addrs[16];
+		int n;
+
+		if (af == AF_INET) {
+			for (i=4; i--;) {
+				uint8_t n = query[0];
+				if (n < 1 || n > 3)
+					return 0;
+				memcpy(buffer, query+1, n);
+				buffer[n]='\0';
+				if (sscanf(buffer, "%d", &x) != 1)
+					return 0;
+				query_addr[i]=x;
+				query += n+1;
+			}
+		} else if (af == AF_INET6) {
+			for (i=16; i--;) {
+				if (query[0] != 1 || query[2] != 1)
+					return 0;
+				buffer[0]=query[3];
+				buffer[1]=query[1];
+				buffer[2]='\0';
+				if (sscanf(buffer, "%x", &x) != 1)
+					return 0;
+				query_addr[i]=x;
+				query +=4;
+			}
+		} else
+			return 0;
+
+		n = iface_addr_lookup(ifindex, af, addrs, ARRAY_SIZE(addrs));
+		/* Don't respond if no address was found for the given interface */
+		if (n == 0)
+			return 0;
+
+		for (i = 0; i < n; i++) {
+			void *addr;
+			size_t addr_size;
+
+			if (addrs[i].ss_family != af)
+				continue;
+
+			if (af == AF_INET) {
+				struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
+				addr = &sin->sin_addr;
+				addr_size = sizeof(sin->sin_addr);
+			} else if (af == AF_INET6) {
+				struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addrs[i];
+				addr = &sin6->sin6_addr;
+				addr_size = sizeof(sin6->sin6_addr);
+			} else
+				return 0;
+
+			if (memcmp(query_addr, addr, addr_size)==0)
+				return MATCH_ADDR;
+		}
+	}
+
+	n = llmnr_hostname[0];
+	if (query[0] == n && query[1 + n] == 0 && strncasecmp((const char *)&query[1], &llmnr_hostname[1], n) == 0)
+		return MATCH_NAME;
+
+	for (a=llmnr_aliases; a; a = a->next) {
+		uint8_t n = a->name[0];
+
+		if (query[0]==n && query[1 + n] == 0 && strncasecmp((const char *)&query[1], &a->name[1], n)==0)
+			return MATCH_ALIAS;
+	}
+
+	return 0;
 }
 
 static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 			  const uint8_t *query, size_t query_len, int sock,
-			  const struct sockaddr_storage *sst)
+			  const struct sockaddr_storage *sst, int match)
 {
 	uint16_t qtype, qclass;
-	uint8_t name_len = query[0];
+	uint8_t query_name_len = get_dns_name_length(query, query_len);
 	/* skip name length & additional '\0' byte */
-	const uint8_t *query_name_end = query + name_len + 2;
+	const uint8_t *query_name_end = query + query_name_len;
 	size_t i, n, response_len;
 	unsigned char family = AF_UNSPEC;
 	/*
@@ -86,9 +225,12 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	struct sockaddr_storage addrs[16];
 	struct pkt *p;
 	struct llmnr_hdr *r;
+	size_t cname_n;
+	size_t cname_len;
+	uint16_t name_ptr;
 
 	/* 4 bytes expected for QTYPE and QCLASS */
-	if ((query_len - name_len - 2) < (sizeof(qtype) + sizeof(qclass)))
+	if ((query_len - query_name_len) < (sizeof(qtype) + sizeof(qclass)))
 		return;
 
 	memcpy(&qtype, query_name_end, sizeof(qtype));
@@ -104,31 +246,38 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	if (!llmnr_ipv6 && qtype == LLMNR_QTYPE_AAAA)
 		return;
 
-	switch (qtype) {
-	case LLMNR_QTYPE_A:
-		family = AF_INET;
-		break;
-	case LLMNR_QTYPE_AAAA:
-		family = AF_INET6;
-		break;
-	case LLMNR_QTYPE_ANY:
-		family = AF_UNSPEC;
-		break;
-	default:
-		return;
+	if (match == MATCH_ADDR) {
+		response_len = 2 + 2 + 2 + 4 + 2 + 1 + llmnr_hostname[0] + 1 ;
+		n = 1;
+	} else {
+		switch (qtype) {
+		case LLMNR_QTYPE_A:
+			family = AF_INET;
+			break;
+		case LLMNR_QTYPE_AAAA:
+			family = AF_INET6;
+			break;
+		case LLMNR_QTYPE_ANY:
+			family = AF_UNSPEC;
+			break;
+		default:
+			return;
+		}
+
+		n = iface_addr_lookup(ifindex, family, addrs, ARRAY_SIZE(addrs));
+		/* Don't respond if no address was found for the given interface */
+		if (n == 0)
+			return;
+		response_len = n * (2 + 2 + 2 + 4 + 2 + sizeof(struct in6_addr));
 	}
-
-	n = iface_addr_lookup(ifindex, family, addrs, ARRAY_SIZE(addrs));
-	/* Don't respond if no address was found for the given interface */
-	if (n == 0)
-		return;
-
+	
+	cname_n   = (match==MATCH_ALIAS) ? 1 : 0 ;
+	cname_len = (match==MATCH_ALIAS) ? (2 + 2 + 2+ 4 + 2 + llmnr_hostname[0] + 2) : 0;
 	/*
 	 * This is the max response length (i.e. using all IPv6 addresses and
 	 * no message compression). We might not use all of it.
 	 */
-	response_len = n * (1 + name_len + 1 + 2 + 2 + 4 + 2 + sizeof(struct in6_addr));
-	p = pkt_alloc(sizeof(*hdr) + query_len + response_len);
+	p = pkt_alloc(sizeof(*hdr) + query_len + cname_len + response_len);
 
 	/* fill the LLMNR header */
 	r = (struct llmnr_hdr *)pkt_put(p, sizeof(*r));
@@ -136,50 +285,80 @@ static void llmnr_respond(unsigned int ifindex, const struct llmnr_hdr *hdr,
 	/* response flag */
 	r->flags = htons(LLMNR_F_QR);
 	r->qdcount = hdr->qdcount;
-	r->ancount = htons(n);
+	r->ancount = htons(n + cname_n);
 	r->nscount = 0;
 	r->arcount = 0;
 
+	/* get pointer to question name */
+	name_ptr=pkt_len(p);
 	/* copy the original question */
 	memcpy(pkt_put(p, query_len), query, query_len);
 
-	/* append an RR for each address */
-	for (i = 0; i < n; i++) {
-		void *addr;
-		size_t addr_size;
-		uint16_t type;
-
-		if (addrs[i].ss_family == AF_INET) {
-			struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
-			addr = &sin->sin_addr;
-			addr_size = sizeof(sin->sin_addr);
-			type = LLMNR_TYPE_A;
-		} else if (addrs[i].ss_family == AF_INET6) {
-			struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addrs[i];
-			addr = &sin6->sin6_addr;
-			addr_size = sizeof(sin6->sin6_addr);
-			type = LLMNR_TYPE_AAAA;
-		} else
-			continue;
-
-		/* NAME */
-		if (i == 0)
-			memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
-		else {
-			/* message compression (RFC 1035, section 4.1.3) */
-			uint16_t ptr = 0xC000 | (sizeof(*hdr) + query_len);
-			pkt_put_u16(p, ntohs(ptr));
-		}
+	if (match==MATCH_ADDR) {
+		/* message compression (RFC 1035, section 4.1.3) */
+		pkt_put_u16(p, ntohs(0xC000 | name_ptr));
 		/* TYPE */
-		pkt_put_u16(p, htons(type));
+		pkt_put_u16(p, htons(LLMNR_TYPE_PTR));
 		/* CLASS */
 		pkt_put_u16(p, htons(LLMNR_CLASS_IN));
 		/* TTL */
 		pkt_put_u32(p, htonl(LLMNR_TTL_DEFAULT));
 		/* RDLENGTH */
-		pkt_put_u16(p, htons(addr_size));
+		pkt_put_u16(p, htons(llmnr_hostname[0] + 2));
 		/* RDATA */
-		memcpy(pkt_put(p, addr_size), addr, addr_size);
+		memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
+	} else {
+		if (match==MATCH_ALIAS) {
+			/* message compression (RFC 1035, section 4.1.3) */
+			pkt_put_u16(p, ntohs(0xC000 | name_ptr));
+			/* TYPE */
+			pkt_put_u16(p, htons(LLMNR_TYPE_CNAME));
+			/* CLASS */
+			pkt_put_u16(p, htons(LLMNR_CLASS_IN));
+			/* TTL */
+			pkt_put_u32(p, htonl(LLMNR_TTL_DEFAULT));
+			/* RDLENGTH */
+			pkt_put_u16(p, htons(llmnr_hostname[0] + 2));
+			/* RDATA */
+			/* update pointer to CNAME target */
+			name_ptr = pkt_len(p);
+			memcpy(pkt_put(p, llmnr_hostname[0] + 2), llmnr_hostname, llmnr_hostname[0] + 2);
+		}
+
+		/* append an RR for each address */
+		for (i = 0; i < n; i++) {
+			void *addr;
+			size_t addr_size;
+			uint16_t type;
+
+			if (addrs[i].ss_family == AF_INET) {
+				struct sockaddr_in *sin = (struct sockaddr_in *)&addrs[i];
+				addr = &sin->sin_addr;
+				addr_size = sizeof(sin->sin_addr);
+				type = LLMNR_TYPE_A;
+			} else if (addrs[i].ss_family == AF_INET6) {
+				struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addrs[i];
+				addr = &sin6->sin6_addr;
+				addr_size = sizeof(sin6->sin6_addr);
+				type = LLMNR_TYPE_AAAA;
+			} else
+				continue;
+
+			/* NAME */
+			/* message compression (RFC 1035, section 4.1.3) */
+			pkt_put_u16(p, ntohs(0xC000 | name_ptr));
+
+			/* TYPE */
+			pkt_put_u16(p, htons(type));
+			/* CLASS */
+			pkt_put_u16(p, htons(LLMNR_CLASS_IN));
+			/* TTL */
+			pkt_put_u32(p, htonl(LLMNR_TTL_DEFAULT));
+			/* RDLENGTH */
+			pkt_put_u16(p, htons(addr_size));
+			/* RDATA */
+			memcpy(pkt_put(p, addr_size), addr, addr_size);
+		}
 	}
 
 	if (sendto(sock, p->data, pkt_len(p), 0, (struct sockaddr *)sst, sizeof(*sst)) < 0)
@@ -196,6 +375,7 @@ static void llmnr_packet_process(int ifindex, const uint8_t *pktbuf, size_t len,
 	const uint8_t *query;
 	size_t query_len;
 	uint8_t name_len;
+	int match;
 
 	/* Query too short? */
 	if (len < sizeof(struct llmnr_hdr))
@@ -211,15 +391,16 @@ static void llmnr_packet_process(int ifindex, const uint8_t *pktbuf, size_t len,
 
 	query = pktbuf + sizeof(struct llmnr_hdr);
 	query_len = len - sizeof(struct llmnr_hdr);
-	name_len = query[0];
+	name_len = get_dns_name_length(query, query_len);
 
 	/* Invalid name in query? */
-	if (name_len == 0 || name_len >= query_len || name_len > LLMNR_LABEL_MAX_SIZE || query[1 + name_len] != 0)
+	if (name_len == 0 || name_len+4u > query_len )
 		return;
 
 	/* Authoritative? */
-	if (llmnr_name_matches(query))
-		llmnr_respond(ifindex, hdr, query, query_len, sock, sst);
+	match = llmnr_name_matches(ifindex, query);
+	if (match)
+		llmnr_respond(ifindex, hdr, query, query_len, sock, sst, match);
 }
 
 void llmnr_recv(int sock)

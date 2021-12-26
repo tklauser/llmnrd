@@ -2,13 +2,16 @@
 .SH NAME
 llmnrd \- LLMNR (RFC 4795) responder daemon
 .SH SYNOPSIS
-\fBllmnrd\fR [\fIoptions\fR]
+\fBllmnrd\fR [\fI\,OPTION\/\fR]... [\fI\,ALIAS\/\fR]...
+
 .SH DESCRIPTION
 .B llmnrd
 is a user space daemon implementing the Link-Local Multicast Name Resolution
 (LLMNR) protocol according to RFC 4795. It will respond to name resolution
 queries sent by Windows clients in networks where no DNS server is available.
 Both IPv4 and IPv6 are supported.
+
+If aliases are spcified on the command line, llmnrd will generete apropriate CNAME records.
 .SH OPTIONS
 .TP
 .B -H <name>, --hostname <name>
@@ -26,6 +29,9 @@ Enable LLMNR name resolution over IPv6.
 .TP
 .B -d, --daemonize
 Run llmnrd as daemon in the background.
+.TP
+.B -s, --syslog
+Send all log output to syslog
 .TP
 .B -h, --help
 Show usage information.
