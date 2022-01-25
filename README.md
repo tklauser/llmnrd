@@ -64,6 +64,13 @@ enable LLMNR name resolution over IPv6 use:
 $ llmnrd -6
 ```
 
+By default, `llmnrd` responds to name requests matching the systems hostname.
+Instead you can provide one or more names via the `-H` argument:
+
+```
+$ llmnrd -H a_name -H another_name
+```
+
 Use `llmnrd --help` to show additional usage information.
 
 Additionally, the `llmnr-query` utility is shipped together with llmnrd and
